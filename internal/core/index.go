@@ -6,19 +6,24 @@ import (
 	"path/filepath"
 )
 
-func Index() {
+func OutputDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	mavenDir := filepath.Join(home, ".m2")
-	slog.Info("Maven directory", "mavenDir", mavenDir)
 	outputDir := filepath.Join(home, "rtfm")
-	os.MkdirAll(outputDir, 0o755)
-    slog.Info("Output directory", "outputDir", outputDir)
-    err = findMavenArtifacts(mavenDir, outputDir)
+	err = os.MkdirAll(outputDir, 0o755)
     if err != nil {
-        slog.Error("Error finding maven artifacts", "error", err)
+        return "", err
+    }
+    return outputDir, nil
+}
+
+func Index() {
+    outputDir, err := OutputDir()
+    if err != nil {
+        slog.Error("Error creating output directory", "error", err)
         panic(err)
     }
+    findMavenArtifacts(outputDir)
 }

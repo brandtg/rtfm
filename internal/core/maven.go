@@ -97,8 +97,14 @@ func extractMavenArtifact(coordinates *MavenCoordinates, outputDir string) error
 	return nil
 }
 
-func findMavenArtifacts(mavenDir string, outputDir string) error {
-	err := filepath.WalkDir(mavenDir, func(path string, d fs.DirEntry, err error) error {
+func findMavenArtifacts(outputDir string) error {
+    home, err := os.UserHomeDir()
+    if err != nil {
+        return err
+    }
+    mavenDir := filepath.Join(home, ".m2", "repository")
+    slog.Info("Searching for Maven artifacts", "dir", mavenDir)
+	err = filepath.WalkDir(mavenDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
