@@ -19,11 +19,17 @@ func ensureOutputDir() (string, error) {
 	return outputDir, nil
 }
 
+func indexJava(outputDir string) error {
+	findMavenArtifacts(filepath.Join(outputDir, "maven"))
+    findJDKClasses()
+    return nil
+}
+
 func Index() {
 	outputDir, err := ensureOutputDir()
 	if err != nil {
 		slog.Error("Error creating output directory", "error", err)
 		panic(err)
 	}
-	findMavenArtifacts(filepath.Join(outputDir, "maven"))
+	indexJava(outputDir)
 }
