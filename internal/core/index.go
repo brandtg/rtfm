@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -23,6 +22,29 @@ func ensureOutputDir() (string, error) {
 	return outputDir, nil
 }
 
+func createDatabase(outputDir string) error {
+	dbPath := filepath.Join(outputDir, "example.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS java_class (
+		name TEXT PRIMARY KEY,
+        path TEXT,
+        jar TEXT
+	);`
+	_, err = db.Exec(createTableQuery)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+
+	slog.Info("Database and table created successfully", "path", dbPath)
+	return nil
+}
+
 func indexJava(outputDir string) error {
 	mavenArtifacts, err := findMavenArtifacts(filepath.Join(outputDir, "maven"))
 	if err != nil {
@@ -34,32 +56,23 @@ func indexJava(outputDir string) error {
 		return fmt.Errorf("error finding JDK classes: %w", err)
 	}
 	slog.Info("Found JDK classes", "classes", len(jdkClasses))
-	for _, jdkClass := range jdkClasses {
-		slog.Info("Processing JDK class", "class", jdkClass.path)
-	}
-	return nil
-}
-
-func createDatabase(outputDir string) error {
 	dbPath := filepath.Join(outputDir, "example.db")
 	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		return fmt.Errorf("failed to open database: %w", err)
+    if err != nil {
+        return err
+    }
+    defer db.Close()
+	for _, jdkClass := range jdkClasses {
+        _, err := db.Exec(
+            `INSERT OR IGNORE INTO java_class (name, path, jar) VALUES (?, ?, ?)`,
+            jdkClass.name,
+            jdkClass.path,
+            jdkClass.jar,
+        )
+        if err != nil {
+            return err
+        }
 	}
-	defer db.Close()
-
-	createTableQuery := `
-	CREATE TABLE IF NOT EXISTS java_classes (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
-	_, err = db.Exec(createTableQuery)
-	if err != nil {
-		return fmt.Errorf("failed to create table: %w", err)
-	}
-
-	slog.Info("Database and table created successfully", "path", dbPath)
 	return nil
 }
 
