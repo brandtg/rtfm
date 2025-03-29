@@ -124,6 +124,9 @@ func findMavenArtifacts(outputDir string) error {
                 if extracted {
                     countExtracted++
                 }
+                if count % 100 == 0 {
+                    slog.Info("Processed Maven artifacts", "count", count)
+                }
 			}
 		}
 		return nil
