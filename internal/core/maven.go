@@ -97,15 +97,17 @@ func extractMavenArtifact(coordinates *MavenCoordinates, outputDir string) (bool
 	return true, nil
 }
 
-func findMavenArtifacts(outputDir string) error {
+func findMavenArtifacts(outputDir string) ([]*MavenCoordinates, error) {
     home, err := os.UserHomeDir()
     if err != nil {
-        return err
+        slog.Error("Error getting user home directory", "error", err)
+        return nil, err
     }
     mavenDir := filepath.Join(home, ".m2", "repository")
     slog.Info("Searching for Maven artifacts", "dir", mavenDir)
     count := 0
     countExtracted := 0
+    mavenCoordinates := []*MavenCoordinates{}
 	err = filepath.WalkDir(mavenDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -116,6 +118,7 @@ func findMavenArtifacts(outputDir string) error {
 				if err != nil {
 					return err
 				}
+                mavenCoordinates = append(mavenCoordinates, coordinates)
                 extracted, err := extractMavenArtifact(coordinates, outputDir)
 				if err != nil {
 					return err
@@ -131,7 +134,6 @@ func findMavenArtifacts(outputDir string) error {
 		}
 		return nil
 	})
-    slog.Info("Found Maven artifacts", "count", count)
-    slog.Info("Extracted Maven artifacts", "countExtracted", countExtracted)
-	return err
+    slog.Info("Found Maven artifacts", "count", count, "countExtracted", countExtracted)
+	return mavenCoordinates, err
 }

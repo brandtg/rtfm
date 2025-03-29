@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os/exec"
 	"regexp"
+	"strings"
+
 	"github.com/PuerkitoBio/goquery"
 )
 
@@ -50,18 +52,61 @@ func findJavaVersion() (string, error) {
 	return javaVersion, nil
 }
 
-func findJDKClasses() {
+type Link struct {
+	title string
+	href  string
+}
+
+type JavaClass struct {
+	name string
+	path string
+	jar  string
+}
+
+func javaClassFromLink(baseUrl string, link Link) JavaClass {
+	name := strings.ReplaceAll(link.href, ".html", "")
+	name = strings.ReplaceAll(name, "/", ".")
+	return JavaClass{
+		name: name,
+		path: baseUrl + link.href,
+		jar:  "JDK",
+	}
+}
+
+func findJDKClasses() ([]JavaClass, error) {
 	javaVersion, err := findJavaVersion()
 	if err != nil {
-		panic(err)
+		slog.Error("Error finding Java version", "error", err)
+		return nil, err
 	}
-	url := fmt.Sprintf("https://docs.oracle.com/en/java/javase/%s/docs/api/allclasses-index.html", javaVersion)
+	url := fmt.Sprintf("https://docs.oracle.com/en/java/javase/%s/docs/api/", javaVersion)
 	slog.Info("Fetching JDK classes from URL", "url", url)
-	res, err := http.Get(url)
+	res, err := http.Get(url + "allclasses-index.html")
 	if err != nil {
-		panic(err)
+		slog.Error("Error fetching URL", "url", url, "error", err)
+		return nil, err
 	}
 	defer res.Body.Close()
 	doc, err := goquery.NewDocumentFromReader(res.Body)
+	if err != nil {
+		slog.Error("Error parsing HTML", "url", url, "error", err)
+		return nil, err
+	}
 	slog.Info("Parsed document", "title", doc.Find("title").Text())
+	links := []Link{}
+	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+		href, hasHref := s.Attr("href")
+		if hasHref {
+			title, hasTitle := s.Attr("title")
+			if hasTitle && (strings.Contains(title, "class in") || strings.Contains(title, "interface in")) {
+				links = append(links, Link{title, href})
+			}
+		}
+	})
+	slog.Info("Extracted links", "count", len(links))
+	javaClasses := []JavaClass{}
+	for _, link := range links {
+        javaClasses = append(javaClasses, javaClassFromLink(url, link))
+	}
+	return javaClasses, nil
 }
