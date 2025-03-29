@@ -1,40 +1,28 @@
 package core
 
 import (
+	"database/sql"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
+	_ "github.com/mattn/go-sqlite3"
 	"log/slog"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
-/*
+type Link struct {
+	title string
+	href  string
+}
 
-def parse_standard_library_classnames(java_version):
-    """
-    Finds links to Javadoc for the JDK from the web.
-    """
-    base_url = (
-        "https://docs.oracle.com/en/java/javase/" + str(java_version) + "/docs/api/"
-    )
-    all_classes_url = base_url + "allclasses-index.html"
-    with request.urlopen(all_classes_url) as response:
-        logging.info("GET %s => %s", all_classes_url, response.getcode())
-        html_content = response.read().decode("utf-8")
-        parser = LinkExtractor(include_external=True)
-        parser.feed(html_content)
-        return [
-            dict(
-                name=link.replace(".html", "").replace("/", "."),
-                path=base_url + link,
-                jar=JDK,
-            )
-            for link in parser.get_links()
-        ]
-*/
+type JavaClass struct {
+	name string
+	path string
+	jar  string
+}
 
 func findJavaVersion() (string, error) {
 	cmd := exec.Command("java", "-version")
@@ -52,17 +40,6 @@ func findJavaVersion() (string, error) {
 	return javaVersion, nil
 }
 
-type Link struct {
-	title string
-	href  string
-}
-
-type JavaClass struct {
-	name string
-	path string
-	jar  string
-}
-
 func javaClassFromLink(baseUrl string, link Link) JavaClass {
 	name := strings.ReplaceAll(link.href, ".html", "")
 	name = strings.ReplaceAll(name, "/", ".")
@@ -74,12 +51,14 @@ func javaClassFromLink(baseUrl string, link Link) JavaClass {
 }
 
 func findJDKClasses() ([]JavaClass, error) {
+    // Create JDK url based on Java version
 	javaVersion, err := findJavaVersion()
 	if err != nil {
 		slog.Error("Error finding Java version", "error", err)
 		return nil, err
 	}
 	url := fmt.Sprintf("https://docs.oracle.com/en/java/javase/%s/docs/api/", javaVersion)
+    // Fetch the JDK classes from the URL
 	slog.Info("Fetching JDK classes from URL", "url", url)
 	res, err := http.Get(url + "allclasses-index.html")
 	if err != nil {
@@ -87,6 +66,7 @@ func findJDKClasses() ([]JavaClass, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
+    // Extract class and interface links from the response
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
 		slog.Error("Error parsing HTML", "url", url, "error", err)
@@ -103,10 +83,66 @@ func findJDKClasses() ([]JavaClass, error) {
 			}
 		}
 	})
+    // Parse links into java classes
 	slog.Info("Extracted links", "count", len(links))
 	javaClasses := []JavaClass{}
 	for _, link := range links {
-        javaClasses = append(javaClasses, javaClassFromLink(url, link))
+		javaClasses = append(javaClasses, javaClassFromLink(url, link))
 	}
 	return javaClasses, nil
+}
+
+func createJavaDatabase(outputDir string, javaClasses []JavaClass) error {
+	// Create sqlite database
+	dbPath := filepath.Join(outputDir, "java.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open database: %w", err)
+	}
+	defer db.Close()
+	// Create table if it doesn't exist
+	createTableQuery := `
+	CREATE TABLE IF NOT EXISTS java_class (
+		name TEXT PRIMARY KEY,
+        path TEXT,
+        jar TEXT
+	);`
+	_, err = db.Exec(createTableQuery)
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+	slog.Info("Database and table created successfully", "path", dbPath)
+	// Insert Java classes into the database
+	for _, javaClass := range javaClasses {
+		_, err := db.Exec(
+			`INSERT OR IGNORE INTO java_class (name, path, jar) VALUES (?, ?, ?)`,
+			javaClass.name,
+			javaClass.path,
+			javaClass.jar,
+		)
+		if err != nil {
+			return err
+		}
+	}
+	slog.Info("Java classes inserted into database", "count", len(javaClasses))
+	return nil
+}
+
+func indexJava(outputDir string) error {
+    // Process javadoc and source artifacts
+	_, err := findMavenArtifacts(filepath.Join(outputDir, "maven"))
+	if err != nil {
+		return fmt.Errorf("error finding Maven artifacts: %w", err)
+	}
+    // Find JDK classes
+	jdkClasses, err := findJDKClasses()
+	if err != nil {
+		return fmt.Errorf("error finding JDK classes: %w", err)
+	}
+    // Write Java classes to database
+    err = createJavaDatabase(outputDir, jdkClasses)
+    if err != nil {
+        return fmt.Errorf("error creating Java database: %w", err)
+    }
+	return nil
 }

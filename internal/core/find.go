@@ -1,9 +1,9 @@
 package core
 
 import (
-    "log/slog"
+	"log/slog"
 )
 
 func Find() {
-    slog.Info("Finding...")
+	slog.Info("Finding...")
 }
