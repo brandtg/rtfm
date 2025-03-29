@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
-	_ "github.com/mattn/go-sqlite3"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 type Link struct {
@@ -92,6 +93,30 @@ func findJDKClasses() ([]JavaClass, error) {
 	return javaClasses, nil
 }
 
+func findLocalRepositoryClasses(outputDir string) ([]JavaClass, error) {
+    javaClasses := []JavaClass{}
+    err := filepath.WalkDir(
+        filepath.Join(outputDir, "maven", "javadoc"),
+        func(path string, d fs.DirEntry, err error) error {
+            if err != nil {
+                return err
+            }
+            if !d.IsDir() {
+                if strings.HasSuffix(path, ".html") {
+                    slog.Debug("Found local repository class", "path", path)
+                }
+            }
+            return nil
+        },
+    )
+    if err != nil {
+        slog.Error("Error walking directory", "path", outputDir, "error", err)
+        return nil, err
+    }
+    slog.Info("Found local repository classes", "count", len(javaClasses))
+    return javaClasses, nil
+}
+
 func createJavaDatabase(outputDir string, javaClasses []JavaClass) error {
 	// Create sqlite database
 	dbPath := filepath.Join(outputDir, "java.db")
@@ -139,8 +164,14 @@ func indexJava(outputDir string) error {
 	if err != nil {
 		return fmt.Errorf("error finding JDK classes: %w", err)
 	}
+    // Find local repository classes
+    localClasses, err := findLocalRepositoryClasses(outputDir)
+    if err != nil {
+        return fmt.Errorf("error finding local repository classes: %w", err)
+    }
     // Write Java classes to database
-    err = createJavaDatabase(outputDir, jdkClasses)
+    javaClasses := append(jdkClasses, localClasses...)
+    err = createJavaDatabase(outputDir, javaClasses)
     if err != nil {
         return fmt.Errorf("error creating Java database: %w", err)
     }
