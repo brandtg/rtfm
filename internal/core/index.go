@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func OutputDir() (string, error) {
+func ensureOutputDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -20,7 +20,7 @@ func OutputDir() (string, error) {
 }
 
 func Index() {
-    outputDir, err := OutputDir()
+    outputDir, err := ensureOutputDir()
     if err != nil {
         slog.Error("Error creating output directory", "error", err)
         panic(err)
