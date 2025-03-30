@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{.Title}}</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>{{.Title}}</h1>
+    <p>{{.Description}}</p>
+    <ul>
+      {{range .Classes}}
+      <li>
+        {{.Name}} 
+
+        {{if startsWith .Path "http"}} 
+        - <a target="_blank" href="{{.Path}}">Javadoc</a> 
+        {{else}} 
+        - <a target="_blank" href="/{{.Path}}">Javadoc</a> 
+        {{end}} 
+
+        {{if startsWith .Source "http"}} 
+        - <a target="_blank" href="{{.Source}}">Source</a> 
+        {{else}} 
+        - <a target="_blank" href="/{{.Source}}">Source</a> 
+        {{end}} 
+      </li>
+      {{end}}
+    </ul>
+  </body>
+</html>
