@@ -2,14 +2,14 @@ package java
 
 import (
 	"database/sql"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"regexp"
-
-	_ "github.com/mattn/go-sqlite3"
+	"strings"
 )
 
-func OpenDB(outputDir string) (*sql.DB, error) {
+func openDB(outputDir string) (*sql.DB, error) {
 	path := filepath.Join(outputDir, "java.db")
 	db, err := sql.Open("sqlite3", path)
 	if err != nil {
@@ -18,7 +18,7 @@ func OpenDB(outputDir string) (*sql.DB, error) {
 	return db, nil
 }
 
-func CreateTables(db *sql.DB) error {
+func createTables(db *sql.DB) error {
 	_, err := db.Exec(`
     CREATE TABLE IF NOT EXISTS java_class (
         name TEXT PRIMARY KEY,
@@ -36,7 +36,7 @@ func CreateTables(db *sql.DB) error {
 	return nil
 }
 
-func InsertJavaClasses(db *sql.DB, docs []JavaClass) error {
+func insertJavaClasses(db *sql.DB, docs []JavaClass) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func makeFuzzy(pattern string) string {
 	return "%" + re.ReplaceAllString(pattern, "%") + "%"
 }
 
-func ListJavaClasses(
+func listJavaClasses(
 	db *sql.DB,
 	pattern string,
 	group string,
@@ -132,4 +132,53 @@ func ListJavaClasses(
 		javaClasses = append(javaClasses, doc)
 	}
 	return javaClasses, nil
+}
+
+func fetchJavaClass(db *sql.DB, target string) (*JavaClass, error) {
+	tokens := strings.Split(target, ":")
+	if len(tokens) != 4 {
+		return nil, fmt.Errorf("invalid target format: %s", target)
+	}
+	rows, err := db.Query(`
+        SELECT
+            name
+            , path
+            , source
+            , artifact_path
+            , artifact_group_id
+            , artifact_id
+            , artifact_version 
+        FROM
+            java_class
+        WHERE
+            artifact_group_id = ?
+            AND artifact_id = ?
+            AND artifact_version = ?
+            AND name = ?
+    `, tokens[0], tokens[1], tokens[2], tokens[3])
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var docs []JavaClass
+	for rows.Next() {
+		var doc JavaClass
+		doc.Artifact = &MavenCoordinates{}
+		err := rows.Scan(
+			&doc.Name,
+			&doc.Path,
+			&doc.Source,
+			&doc.Artifact.Path,
+			&doc.Artifact.GroupId,
+			&doc.Artifact.ArtifactId,
+			&doc.Artifact.Version)
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, doc)
+	}
+	if len(docs) > 0 {
+		return &docs[0], nil
+	}
+	return nil, fmt.Errorf("java class not found: %s", target)
 }
