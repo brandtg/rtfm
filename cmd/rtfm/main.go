@@ -70,8 +70,7 @@ func find(args []string) {
 
 func view(args []string) {
 	flags := flag.NewFlagSet("view", flag.ExitOnError)
-	server := flags.Bool("server", false, "Serve Java classes on http server")
-	serverPort := flags.Int("port", 9999, "Port for the HTTP server")
+    source := flags.Bool("source", false, "Show source code")
 	err := flags.Parse(args)
 	if err != nil {
 		slog.Error("Error parsing flags", "error", err)
@@ -84,13 +83,10 @@ func view(args []string) {
 	}
 	target := flagArgs[0]
 	outputDir := ensureOutputDir()
-	javaClass, err := java.View(outputDir, target, *serverPort)
+	_, err = java.View(outputDir, target, *source)
 	if err != nil {
 		slog.Error("Error viewing Java class", "error", err)
 		panic(err)
-	}
-	if *server {
-		java.Server(outputDir, []java.JavaClass{*javaClass}, *serverPort)
 	}
 }
 

@@ -2,12 +2,13 @@ package java
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func View(baseOutputDir string, target string, serverPort int) (*JavaClass, error) {
+func View(baseOutputDir string, target string, showSource bool) (*JavaClass, error) {
 	outputDir := javaOutputDir(baseOutputDir)
 	// Connect to SQLite database
 	db, err := openDB(outputDir)
@@ -20,8 +21,17 @@ func View(baseOutputDir string, target string, serverPort int) (*JavaClass, erro
 	if err != nil {
 		return nil, err
 	}
-	// Format the Javadoc as Markdown
-	markdown := FormatMarkdown(filepath.Join(outputDir, javaClass.Path))
-	fmt.Println(markdown)
-	return javaClass, nil
+    if showSource {
+        // Output the source code
+        source, err := os.ReadFile(filepath.Join(outputDir, javaClass.Source))
+        if err != nil {
+            return nil, err
+        }
+        fmt.Println(string(source))
+    } else {
+        // Format the Javadoc as Markdown
+        markdown := FormatMarkdown(filepath.Join(outputDir, javaClass.Path))
+        fmt.Println(markdown)
+    }
+    return javaClass, nil
 }
