@@ -17,7 +17,7 @@
     <ul>
       {{range .Classes}}
       <li>
-        {{.Name}} 
+          {{.Artifact.GroupId}}:{{.Artifact.ArtifactId}}:{{.Artifact.Version}}:{{.Name}} 
 
         {{if startsWith .Path "http"}} 
         - <a target="_blank" href="{{.Path}}">Javadoc</a> 

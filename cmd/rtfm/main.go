@@ -68,6 +68,32 @@ func find(args []string) {
 	}
 }
 
+func view(args []string) {
+	flags := flag.NewFlagSet("view", flag.ExitOnError)
+	server := flags.Bool("server", false, "Serve Java classes on http server")
+	serverPort := flags.Int("port", 9999, "Port for the HTTP server")
+	err := flags.Parse(args)
+	if err != nil {
+		slog.Error("Error parsing flags", "error", err)
+		os.Exit(1)
+	}
+	flagArgs := flags.Args()
+	if len(flagArgs) < 1 {
+		slog.Error("expected class name")
+		os.Exit(1)
+	}
+	target := flagArgs[0]
+	outputDir := ensureOutputDir()
+	javaClass, err := java.View(outputDir, target, *serverPort)
+	if err != nil {
+		slog.Error("Error viewing Java class", "error", err)
+		panic(err)
+	}
+	if *server {
+		java.Server(outputDir, []java.JavaClass{*javaClass}, *serverPort)
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		slog.Error("expected subcommand")
@@ -78,6 +104,8 @@ func main() {
 		index(os.Args[2:])
 	case "find":
 		find(os.Args[2:])
+	case "view":
+		view(os.Args[2:])
 	default:
 		slog.Error("unknown command")
 		os.Exit(1)
