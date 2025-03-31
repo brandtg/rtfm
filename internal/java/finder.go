@@ -33,12 +33,7 @@ func Find(
 	case "default":
 		formatted := make([]string, len(javaClasses))
 		for i, javaClass := range javaClasses {
-			formatted[i] = fmt.Sprintf(
-				"%s:%s:%s:%s",
-				javaClass.Artifact.GroupId,
-				javaClass.Artifact.ArtifactId,
-				javaClass.Artifact.Version,
-				javaClass.Name)
+            formatted[i] = javaClass.key()
 		}
 		sort.Strings(formatted)
 		for _, javaClass := range formatted {

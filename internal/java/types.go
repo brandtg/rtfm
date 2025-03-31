@@ -1,6 +1,7 @@
 package java
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 )
@@ -35,4 +36,13 @@ type JavaClass struct {
 
 func javaOutputDir(baseOutputDir string) string {
 	return filepath.Join(baseOutputDir, "java")
+}
+
+func (j *JavaClass) key() string {
+	return fmt.Sprintf(
+		"%s:%s:%s:%s",
+		j.Artifact.GroupId,
+		j.Artifact.ArtifactId,
+		j.Artifact.Version,
+		j.Name)
 }
