@@ -1,22 +1,15 @@
-APP_NAME=rtfm
-CMD_DIR=./cmd/$(APP_NAME)
+APP_NAME := rtfm
 
-.PHONY: build run test fmt lint clean
+.PHONY: build run clean install
 
 build:
-	go build -o bin/$(APP_NAME) $(CMD_DIR)
+	go build -o bin/$(APP_NAME) .
 
 run:
-	go run $(CMD_DIR)
+	go run main.go
 
-test:
-	go test ./...
-
-fmt:
-	go fmt ./...
-
-lint:
-	golangci-lint run
+install:
+	go install .
 
 clean:
 	rm -rf bin/
