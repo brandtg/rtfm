@@ -22,7 +22,7 @@ func ensureOutputDir() string {
 	return outputDir
 }
 
-func index(args []string) {
+func indexJava(args []string) {
 	// TODO parse args
 	outputDir := ensureOutputDir()
 	err := java.Index(outputDir)
@@ -32,7 +32,7 @@ func index(args []string) {
 	}
 }
 
-func find(args []string) {
+func findJava(args []string) {
 	// Define flags
 	flags := flag.NewFlagSet("find", flag.ExitOnError)
 	group := flags.String("group", "", "Specify the group ID")
@@ -68,7 +68,7 @@ func find(args []string) {
 	}
 }
 
-func view(args []string) {
+func viewJava(args []string) {
 	flags := flag.NewFlagSet("view", flag.ExitOnError)
     source := flags.Bool("source", false, "Show source code")
 	err := flags.Parse(args)
@@ -90,20 +90,30 @@ func view(args []string) {
 	}
 }
 
+func runJava(args []string) {
+	switch args[0] {
+	case "index":
+		indexJava(args[1:])
+	case "find":
+		findJava(args[1:])
+	case "view":
+		viewJava(args[1:])
+	default:
+		slog.Error("unknown command")
+		os.Exit(1)
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		slog.Error("expected subcommand")
 		os.Exit(1)
 	}
 	switch os.Args[1] {
-	case "index":
-		index(os.Args[2:])
-	case "find":
-		find(os.Args[2:])
-	case "view":
-		view(os.Args[2:])
-	default:
-		slog.Error("unknown command")
-		os.Exit(1)
+    case "java":
+        runJava(os.Args[2:])
+    default:
+        slog.Error("unknown command")
+        os.Exit(1)
 	}
 }
