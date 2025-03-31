@@ -70,7 +70,7 @@ func findJava(args []string) {
 
 func viewJava(args []string) {
 	flags := flag.NewFlagSet("view", flag.ExitOnError)
-    source := flags.Bool("source", false, "Show source code")
+	source := flags.Bool("source", false, "Show source code")
 	err := flags.Parse(args)
 	if err != nil {
 		slog.Error("Error parsing flags", "error", err)
@@ -110,10 +110,10 @@ func main() {
 		os.Exit(1)
 	}
 	switch os.Args[1] {
-    case "java":
-        runJava(os.Args[2:])
-    default:
-        slog.Error("unknown command")
-        os.Exit(1)
+	case "java":
+		runJava(os.Args[2:])
+	default:
+		slog.Error("unknown command")
+		os.Exit(1)
 	}
 }
