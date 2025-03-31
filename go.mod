@@ -7,6 +7,8 @@ require (
 	golang.org/x/text v0.23.0
 )
 
+require github.com/mitchellh/go-wordwrap v1.0.1 // indirect
+
 require (
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056
 	github.com/mattn/go-runewidth v0.0.9 // indirect

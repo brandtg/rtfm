@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/mitchellh/go-wordwrap"
 )
 
 type Header struct {
@@ -149,7 +150,7 @@ func formatMarkdownDocument(
 		lines = append(lines, "")
 	}
 	lines = append(lines, formatMarkdownHeader("Description"))
-	lines = append(lines, description)
+	lines = append(lines, wordwrap.WrapString(description, 80))
 	lines = append(lines, "")
 	if len(constructors) > 0 {
 		lines = append(lines, formatMarkdownHeader("Constructors"))
@@ -166,7 +167,11 @@ func formatMarkdownDocument(
 		for _, method := range methods {
 			lines = append(lines, method.Modifier+" "+method.Name)
 			if method.Description != "" {
-				lines = append(lines, INDENT+method.Description)
+				wrappedLines := strings.SplitSeq(
+					wordwrap.WrapString(method.Description, 80), "\n")
+				for line := range wrappedLines {
+					lines = append(lines, INDENT+line)
+				}
 			}
 			lines = append(lines, "")
 		}
