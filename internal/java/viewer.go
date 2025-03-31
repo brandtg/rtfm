@@ -30,7 +30,7 @@ func View(baseOutputDir string, target string, showSource bool) (*JavaClass, err
 		fmt.Println(string(source))
 	} else {
 		// Format the Javadoc as Markdown
-		markdown := FormatMarkdown(filepath.Join(outputDir, javaClass.Path))
+		markdown := FormatMarkdown(outputDir, javaClass)
 		fmt.Println(markdown)
 	}
 	return javaClass, nil

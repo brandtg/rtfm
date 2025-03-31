@@ -3,6 +3,7 @@ package java
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -75,9 +76,10 @@ type Constructor struct {
 
 func parseConstructorSummary(doc *goquery.Document) []Constructor {
 	acc := make([]Constructor, 0)
-	header := doc.Find("h3").FilterFunction(func(i int, s *goquery.Selection) bool {
+	header := doc.Find("h2, h3").FilterFunction(func(i int, s *goquery.Selection) bool {
 		return s.Text() == "Constructor Summary"
 	}).First()
+	// HTML table style
 	table := header.Next()
 	table.Find("tr").Each(func(i int, s *goquery.Selection) {
 		name := s.Find(".colConstructorName").First().Text()
@@ -89,6 +91,20 @@ func parseConstructorSummary(doc *goquery.Document) []Constructor {
 			})
 		}
 	})
+	// Div style
+	table = header.NextAll().Filter(".summary-table").First()
+	if table.Length() > 0 {
+		table.Find(".col-constructor-name").Each(func(i int, s *goquery.Selection) {
+			name := s.Text()
+			description := s.Next().Text()
+			if name != "" {
+				acc = append(acc, Constructor{
+					Name:        normalizeWhitespace(name),
+					Description: normalizeWhitespace(description),
+				})
+			}
+		})
+	}
 	return acc
 }
 
@@ -100,9 +116,10 @@ type Method struct {
 
 func parseMethodSummary(doc *goquery.Document) []Method {
 	acc := make([]Method, 0)
-	header := doc.Find("h3").FilterFunction(func(i int, s *goquery.Selection) bool {
+	header := doc.Find("h2, h3").FilterFunction(func(i int, s *goquery.Selection) bool {
 		return s.Text() == "Method Summary"
 	}).First()
+	// HTML table style
 	table := header.Next()
 	table.Find("tr").Each(func(i int, s *goquery.Selection) {
 		modifier := s.Find(".colFirst").First().Text()
@@ -116,6 +133,22 @@ func parseMethodSummary(doc *goquery.Document) []Method {
 			})
 		}
 	})
+	// Div style
+	table = header.NextAll().Filter("#method-summary-table").First()
+	if table.Length() > 0 {
+		table.Find(".method-summary-table.col-first").Each(func(i int, s *goquery.Selection) {
+			modifier := s.Text()
+			name := s.Next().Text()
+			description := s.Next().Next().Text()
+			if name != "" && name != "Method" {
+				acc = append(acc, Method{
+					Modifier:    normalizeWhitespace(modifier),
+					Name:        normalizeWhitespace(name),
+					Description: normalizeWhitespace(description),
+				})
+			}
+		})
+	}
 	return acc
 }
 
@@ -130,6 +163,8 @@ func formatMarkdownHeader(text string) string {
 const INDENT = "    "
 
 func formatMarkdownDocument(
+	outputDir string,
+	javaClass *JavaClass,
 	title string,
 	header Header,
 	inheritance []string,
@@ -149,9 +184,11 @@ func formatMarkdownDocument(
 		}
 		lines = append(lines, "")
 	}
-	lines = append(lines, formatMarkdownHeader("Description"))
-	lines = append(lines, wordwrap.WrapString(description, 80))
-	lines = append(lines, "")
+	if description != "" {
+		lines = append(lines, formatMarkdownHeader("Description"))
+		lines = append(lines, wordwrap.WrapString(description, 80))
+		lines = append(lines, "")
+	}
 	if len(constructors) > 0 {
 		lines = append(lines, formatMarkdownHeader("Constructors"))
 		for _, constructor := range constructors {
@@ -176,10 +213,13 @@ func formatMarkdownDocument(
 			lines = append(lines, "")
 		}
 	}
+	lines = append(lines, formatMarkdownHeader("Source Code"))
+	lines = append(lines, filepath.Join(outputDir, javaClass.Source))
 	return strings.Join(lines, "\n")
 }
 
-func FormatMarkdown(filename string) string {
+func FormatMarkdown(outputDir string, javaClass *JavaClass) string {
+	filename := filepath.Join(outputDir, javaClass.Path)
 	// Open the file
 	r, err := os.Open(filename)
 	if err != nil {
@@ -199,5 +239,10 @@ func FormatMarkdown(filename string) string {
 	description := parseDescription(doc)
 	constructors := parseConstructorSummary(doc)
 	methods := parseMethodSummary(doc)
-	return formatMarkdownDocument(title, header, inheritance, description, constructors, methods)
+	// TODO Methods inherited from
+	// TODO Field summary
+	// TODO Nested classes
+	return formatMarkdownDocument(
+		outputDir,
+		javaClass, title, header, inheritance, description, constructors, methods)
 }
