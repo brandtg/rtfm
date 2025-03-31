@@ -152,6 +152,80 @@ func parseMethodSummary(doc *goquery.Document) []Method {
 	return acc
 }
 
+type EnumOption struct {
+	Name        string
+	Description string
+}
+
+func parseEnumOptions(doc *goquery.Document) []EnumOption {
+	acc := make([]EnumOption, 0)
+	header := doc.Find("h2, h3").FilterFunction(func(i int, s *goquery.Selection) bool {
+		return s.Text() == "Enum Constant Summary"
+	})
+	// HTML table style
+	table := header.Next()
+	table.Find("tr").Each(func(i int, s *goquery.Selection) {
+		name := s.Find(".colFirst").First().Text()
+		description := s.Find(".colLast").First().Text()
+		if name != "" {
+			acc = append(acc, EnumOption{
+				Name:        normalizeWhitespace(name),
+				Description: normalizeWhitespace(description),
+			})
+		}
+	})
+	// Div style
+	table = header.NextAll().Filter(".summary-table").First()
+	if table.Length() > 0 {
+		table.Find(".col-first").Each(func(i int, s *goquery.Selection) {
+			name := s.Text()
+			description := s.Next().Text()
+			if name != "" && name != "Enum Constant" {
+				acc = append(acc, EnumOption{
+					Name:        normalizeWhitespace(name),
+					Description: normalizeWhitespace(description),
+				})
+			}
+		})
+	}
+	return acc
+}
+
+type InheritedMethod struct {
+	Parent  string
+	Methods []string
+}
+
+func parseInheritedMethodList(root *goquery.Selection) []string {
+	acc := make([]string, 0)
+	root.Find("a").Each(func(i int, s *goquery.Selection) {
+		text := s.Text()
+		if text != "" {
+			acc = append(acc, normalizeWhitespace(text))
+		}
+	})
+	return acc
+}
+
+func parseInheritedMethods(doc *goquery.Document) []InheritedMethod {
+	acc := make([]InheritedMethod, 0)
+	headers := doc.Find("h3").FilterFunction(func(i int, s *goquery.Selection) bool {
+		return strings.Contains(s.Text(), "Methods inherited from")
+	})
+	headers.Each(func(i int, s *goquery.Selection) {
+		id, hasId := s.Attr("id")
+		if hasId {
+			parent := strings.Replace(id, "methods-inherited-from-class-", "", 1)
+			methods := parseInheritedMethodList(s.Next())
+			acc = append(acc, InheritedMethod{
+				Parent:  parent,
+				Methods: methods,
+			})
+		}
+	})
+	return acc
+}
+
 func formatMarkdownHeader(text string) string {
 	lines := make([]string, 0)
 	lines = append(lines, text)
@@ -171,9 +245,12 @@ func formatMarkdownDocument(
 	description string,
 	constructors []Constructor,
 	methods []Method,
+	enumOptions []EnumOption,
+	inheritedMethods []InheritedMethod,
 ) string {
 	lines := make([]string, 0)
-	lines = append(lines, formatMarkdownHeader(title))
+	lines = append(lines, formatMarkdownHeader(javaClass.key()))
+	lines = append(lines, title)
 	lines = append(lines, header.SubTitle...)
 	lines = append(lines, header.Title)
 	lines = append(lines, "")
@@ -199,6 +276,16 @@ func formatMarkdownDocument(
 			lines = append(lines, "")
 		}
 	}
+	if len(enumOptions) > 0 {
+		lines = append(lines, formatMarkdownHeader("Enum Options"))
+		for _, enumOption := range enumOptions {
+			lines = append(lines, enumOption.Name)
+			if enumOption.Description != "" {
+				lines = append(lines, INDENT+enumOption.Description)
+			}
+			lines = append(lines, "")
+		}
+	}
 	if len(methods) > 0 {
 		lines = append(lines, formatMarkdownHeader("Methods"))
 		for _, method := range methods {
@@ -209,6 +296,19 @@ func formatMarkdownDocument(
 				for line := range wrappedLines {
 					lines = append(lines, INDENT+line)
 				}
+			}
+			lines = append(lines, "")
+		}
+	}
+	// Inherited methods
+	if len(inheritedMethods) > 0 {
+		lines = append(lines, formatMarkdownHeader("Inherited Methods"))
+		for _, inheritedMethod := range inheritedMethods {
+			lines = append(lines, inheritedMethod.Parent)
+			wrappedLines := strings.SplitSeq(
+				wordwrap.WrapString(strings.Join(inheritedMethod.Methods, ", "), 80), "\n")
+			for line := range wrappedLines {
+				lines = append(lines, INDENT+line)
 			}
 			lines = append(lines, "")
 		}
@@ -239,10 +339,19 @@ func FormatMarkdown(outputDir string, javaClass *JavaClass) string {
 	description := parseDescription(doc)
 	constructors := parseConstructorSummary(doc)
 	methods := parseMethodSummary(doc)
-	// TODO Methods inherited from
+	enumOptions := parseEnumOptions(doc)
+	inheritedMethods := parseInheritedMethods(doc)
 	// TODO Field summary
 	// TODO Nested classes
 	return formatMarkdownDocument(
 		outputDir,
-		javaClass, title, header, inheritance, description, constructors, methods)
+		javaClass,
+		title,
+		header,
+		inheritance,
+		description,
+		constructors,
+		methods,
+		enumOptions,
+		inheritedMethods)
 }
