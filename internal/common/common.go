@@ -3,6 +3,7 @@ package common
 import (
 	"os"
 	"path/filepath"
+	"slices"
 )
 
 func EnsureOutputDir() string {
@@ -16,4 +17,27 @@ func EnsureOutputDir() string {
 		panic(err)
 	}
 	return outputDir
+}
+
+func Dedupe(input []string) []string {
+	seen := make(map[string]struct{})
+	result := []string{}
+	for _, item := range input {
+		if _, exists := seen[item]; !exists {
+			seen[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func Exists(file string) bool {
+	if _, err := os.Stat(file); err == nil {
+		return true
+	}
+	return false
+}
+
+func AtLeastOneFileExists(files []string) bool {
+	return slices.ContainsFunc(files, Exists)
 }

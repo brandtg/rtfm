@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+
+	"github.com/brandtg/rtfm/internal/common"
 )
 
 func Find(
@@ -18,7 +20,7 @@ func Find(
 ) ([]JavaClass, error) {
 	outputDir := javaOutputDir(baseOutputDir)
 	// Connect to SQLite database
-	db, err := openDB(outputDir)
+	db, err := common.OpenDB(outputDir, DB_NAME)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +35,7 @@ func Find(
 	case "default":
 		formatted := make([]string, len(javaClasses))
 		for i, javaClass := range javaClasses {
-            formatted[i] = javaClass.key()
+			formatted[i] = javaClass.key()
 		}
 		sort.Strings(formatted)
 		for _, javaClass := range formatted {

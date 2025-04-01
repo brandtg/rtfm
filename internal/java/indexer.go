@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/brandtg/rtfm/internal/common"
 )
 
 func isLocalLink(href string) bool {
@@ -92,7 +93,18 @@ func parseClassIndexHtml(
 }
 
 func Index(baseOutputDir string) error {
+	// Connect to SQLite database
 	outputDir := javaOutputDir(baseOutputDir)
+	db, err := common.OpenDB(outputDir, DB_NAME)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	err = createTables(db)
+	if err != nil {
+		return err
+	}
+	// Find Java artifact repos
 	repos, err := listRepos()
 	if err != nil {
 		slog.Error("Error listing repositories", "error", err)
@@ -113,16 +125,6 @@ func Index(baseOutputDir string) error {
 				slog.Error("Error extracting artifact", "artifact", artifact, "error", err)
 				return err
 			}
-		}
-		// Connect to SQLite database
-		db, err := openDB(outputDir)
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		err = createTables(db)
-		if err != nil {
-			return err
 		}
 		// JDK classes
 		jdkClasses, err := findJDKClasses()

@@ -5,13 +5,13 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/brandtg/rtfm/internal/common"
 )
 
 func View(baseOutputDir string, target string, showSource bool) (*JavaClass, error) {
 	outputDir := javaOutputDir(baseOutputDir)
 	// Connect to SQLite database
-	db, err := openDB(outputDir)
+	db, err := common.OpenDB(outputDir, DB_NAME)
 	if err != nil {
 		return nil, err
 	}

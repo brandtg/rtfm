@@ -8,6 +8,7 @@ import (
 
 	"github.com/brandtg/rtfm/internal/common"
 	"github.com/brandtg/rtfm/internal/java"
+	"github.com/brandtg/rtfm/internal/python"
 	"github.com/spf13/cobra"
 )
 
@@ -38,6 +39,23 @@ var javaFindCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 }
 
+var pythonFindCmd = &cobra.Command{
+	Use:   "python",
+	Short: "A subcommand for find",
+	Run: func(cmd *cobra.Command, args []string) {
+		venv, _ := cmd.Flags().GetString("venv")
+		format, _ := cmd.Flags().GetString("format")
+		exact, _ := cmd.Flags().GetBool("exact")
+		outputDir := common.EnsureOutputDir()
+		_, err := python.Find(outputDir, args[0], venv, format, exact)
+		if err != nil {
+			slog.Error("Error finding Python modules", "error", err)
+			panic(err)
+		}
+	},
+	Args: cobra.ExactArgs(1),
+}
+
 func init() {
 	rootCmd.AddCommand(findCmd)
 	// Java find command
@@ -48,4 +66,9 @@ func init() {
 	javaFindCmd.Flags().BoolP("exact", "e", false, "Specify exact match")
 	javaFindCmd.Flags().StringP("format", "f", "default", "Specify output format (default, class, json, javadoc, source)")
 	findCmd.AddCommand(javaFindCmd)
+	// Python find command
+	pythonFindCmd.Flags().StringP("venv", "v", "", "Specify the virtual environment")
+	pythonFindCmd.Flags().StringP("format", "f", "default", "Specify output format (default, json, source, module)")
+	pythonFindCmd.Flags().BoolP("exact", "e", false, "Specify exact match")
+	findCmd.AddCommand(pythonFindCmd)
 }

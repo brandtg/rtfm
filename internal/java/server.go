@@ -10,8 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 //go:embed templates/index.html

@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const DB_NAME = "java.db"
+
 type Link struct {
 	Text  string
 	Title string
