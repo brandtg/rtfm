@@ -4,24 +4,17 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"path/filepath"
-	"regexp"
 	"strings"
+
+	"github.com/brandtg/rtfm/internal/common"
 )
 
-func openDB(outputDir string) (*sql.DB, error) {
-	path := filepath.Join(outputDir, "java.db")
-	db, err := sql.Open("sqlite3", path)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
-}
-
+// TODO Change this to have the application key as the primary key
 func createTables(db *sql.DB) error {
 	_, err := db.Exec(`
     CREATE TABLE IF NOT EXISTS java_class (
-        name TEXT PRIMARY KEY,
+        key TEXT PRIMARY KEY,
+        name TEXT,
         path TEXT,
         source TEXT,
         artifact_path TEXT,
@@ -44,6 +37,7 @@ func insertJavaClasses(db *sql.DB, docs []JavaClass) error {
 	defer tx.Rollback()
 	stmt, err := tx.Prepare(`
         INSERT OR IGNORE INTO java_class (
+            key,
             name,
             path,
             source,
@@ -52,7 +46,7 @@ func insertJavaClasses(db *sql.DB, docs []JavaClass) error {
             artifact_id,
             artifact_version
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `)
 	if err != nil {
 		return err
@@ -60,6 +54,7 @@ func insertJavaClasses(db *sql.DB, docs []JavaClass) error {
 	defer stmt.Close()
 	for _, doc := range docs {
 		_, err := stmt.Exec(
+			doc.key(),
 			doc.Name,
 			doc.Path,
 			doc.Source,
@@ -74,11 +69,6 @@ func insertJavaClasses(db *sql.DB, docs []JavaClass) error {
 	return tx.Commit()
 }
 
-func makeFuzzy(pattern string) string {
-	re := regexp.MustCompile(`\s+`)
-	return "%" + re.ReplaceAllString(pattern, "%") + "%"
-}
-
 func listJavaClasses(
 	db *sql.DB,
 	pattern string,
@@ -88,7 +78,7 @@ func listJavaClasses(
 	exact bool,
 ) ([]JavaClass, error) {
 	if !exact {
-		pattern = makeFuzzy(pattern)
+		pattern = common.MakeFuzzy(pattern)
 	}
 	slog.Debug("Searching for Java classes", "pattern", pattern)
 	rows, err := db.Query(`
