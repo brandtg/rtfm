@@ -15,7 +15,7 @@ func readPydoc(module *PythonModule) (string, error) {
 	}
 	binary := filepath.Join(module.Venv, "bin", "python")
 	cmd := exec.Command(binary, "-m", "pydoc", module.Name)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("PYTHONPATH=%s", module.SitePackagesDir))
+    fmt.Println("Running command:", cmd.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("error running pydoc: %v %s", err, string(output))
