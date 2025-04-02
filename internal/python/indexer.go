@@ -78,17 +78,6 @@ func moduleNameFromPath(sitePackagesDir string, path string) string {
 	return path
 }
 
-type PythonModule struct {
-	Venv            string
-	Name            string
-	Path            string
-	SitePackagesDir string
-}
-
-func (m *PythonModule) key() string {
-	return fmt.Sprintf("%s:%s", m.Venv, m.Name)
-}
-
 func findModules(venv string) ([]PythonModule, error) {
 	// Find site-packages directory
 	sitePackagesDir, err := findSitePackagesDir(venv)

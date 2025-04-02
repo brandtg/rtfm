@@ -74,7 +74,7 @@ var javaSelectCmd = &cobra.Command{
 		if source {
 			viewArgs = append(viewArgs, "--source")
 		}
-        runViewCommand(viewArgs)
+		runViewCommand(viewArgs)
 	},
 	Args: cobra.MinimumNArgs(1),
 }
@@ -84,12 +84,12 @@ var pythonSelectCmd = &cobra.Command{
 	Short: "A subcommand for select",
 	Run: func(cmd *cobra.Command, args []string) {
 		checkFzfInstalled()
-        findArgs := []string{"python"}
-        findArgs = append(findArgs, args...)
-        venv, _ := cmd.Flags().GetString("venv")
-        if venv != "" {
-            findArgs = append(findArgs, "--venv", venv)
-        }
+		findArgs := []string{"python"}
+		findArgs = append(findArgs, args...)
+		venv, _ := cmd.Flags().GetString("venv")
+		if venv != "" {
+			findArgs = append(findArgs, "--venv", venv)
+		}
 		findOutput := runFindCommand(findArgs)
 		selection := runFzf(findOutput)
 		viewArgs := []string{"view", "python", selection}
@@ -97,7 +97,30 @@ var pythonSelectCmd = &cobra.Command{
 		if source {
 			viewArgs = append(viewArgs, "--source")
 		}
-        runViewCommand(viewArgs)
+		runViewCommand(viewArgs)
+	},
+	Args: cobra.MinimumNArgs(1),
+}
+
+var javascriptSelectCmd = &cobra.Command{
+	Use:   "javascript",
+	Short: "A subcommand for select",
+	Run: func(cmd *cobra.Command, args []string) {
+		checkFzfInstalled()
+		findArgs := []string{"javascript"}
+		findArgs = append(findArgs, args...)
+		venv, _ := cmd.Flags().GetString("venv")
+		if venv != "" {
+			findArgs = append(findArgs, "--venv", venv)
+		}
+		findOutput := runFindCommand(findArgs)
+		selection := runFzf(findOutput)
+		viewArgs := []string{"view", "javascript", selection}
+		source, _ := cmd.Flags().GetBool("source")
+		if source {
+			viewArgs = append(viewArgs, "--source")
+		}
+		runViewCommand(viewArgs)
 	},
 	Args: cobra.MinimumNArgs(1),
 }
@@ -105,8 +128,10 @@ var pythonSelectCmd = &cobra.Command{
 func init() {
 	selectCmd.AddCommand(javaSelectCmd)
 	javaSelectCmd.Flags().BoolP("source", "s", false, "View sources")
-    selectCmd.AddCommand(pythonSelectCmd)
-    pythonSelectCmd.Flags().BoolP("source", "s", false, "View sources")
-    pythonSelectCmd.Flags().StringP("venv", "v", "", "Python virtual environment")
+	selectCmd.AddCommand(pythonSelectCmd)
+	pythonSelectCmd.Flags().BoolP("source", "s", false, "View sources")
+	pythonSelectCmd.Flags().StringP("venv", "v", "", "Python virtual environment")
 	rootCmd.AddCommand(selectCmd)
+	javascriptSelectCmd.Flags().BoolP("source", "s", false, "View sources")
+	selectCmd.AddCommand(javascriptSelectCmd)
 }

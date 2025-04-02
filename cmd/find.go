@@ -8,6 +8,7 @@ import (
 
 	"github.com/brandtg/rtfm/internal/common"
 	"github.com/brandtg/rtfm/internal/java"
+	"github.com/brandtg/rtfm/internal/javascript"
 	"github.com/brandtg/rtfm/internal/python"
 	"github.com/spf13/cobra"
 )
@@ -56,6 +57,23 @@ var pythonFindCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 }
 
+var javascriptFindCmd = &cobra.Command{
+	Use:   "javascript",
+	Short: "A subcommand for find",
+	Run: func(cmd *cobra.Command, args []string) {
+		nodeModulesDir, _ := cmd.Flags().GetString("node-modules")
+		format, _ := cmd.Flags().GetString("format")
+		exact, _ := cmd.Flags().GetBool("exact")
+		outputDir := common.EnsureOutputDir()
+		_, err := javascript.Find(outputDir, args[0], nodeModulesDir, format, exact)
+		if err != nil {
+			slog.Error("Error finding JavaScript modules", "error", err)
+			panic(err)
+		}
+	},
+	Args: cobra.ExactArgs(1),
+}
+
 func init() {
 	rootCmd.AddCommand(findCmd)
 	// Java find command
@@ -71,4 +89,9 @@ func init() {
 	pythonFindCmd.Flags().StringP("format", "f", "default", "Specify output format (default, json, source, module)")
 	pythonFindCmd.Flags().BoolP("exact", "e", false, "Specify exact match")
 	findCmd.AddCommand(pythonFindCmd)
+	// JavaScript find command
+	javascriptFindCmd.Flags().StringP("node-modules", "n", "", "Specify the node_modules directory")
+	javascriptFindCmd.Flags().StringP("format", "f", "default", "Specify output format (default, json, source)")
+	javascriptFindCmd.Flags().BoolP("exact", "e", false, "Specify exact match")
+	findCmd.AddCommand(javascriptFindCmd)
 }

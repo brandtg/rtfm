@@ -8,6 +8,7 @@ import (
 
 	"github.com/brandtg/rtfm/internal/common"
 	"github.com/brandtg/rtfm/internal/java"
+	"github.com/brandtg/rtfm/internal/javascript"
 	"github.com/brandtg/rtfm/internal/python"
 	"github.com/spf13/cobra"
 )
@@ -44,8 +45,21 @@ var pythonIndexCmd = &cobra.Command{
 	},
 }
 
+var javascriptIndexCmd = &cobra.Command{
+	Use:   "javascript",
+	Short: "Indexes JavaScript code and documentation",
+	Run: func(cmd *cobra.Command, args []string) {
+		outputDir := common.EnsureOutputDir()
+		err := javascript.Index(outputDir)
+		if err != nil {
+			slog.Error("Error indexing JavaScript", "error", err)
+		}
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(indexCmd)
 	indexCmd.AddCommand(javaIndexCmd)
 	indexCmd.AddCommand(pythonIndexCmd)
+	indexCmd.AddCommand(javascriptIndexCmd)
 }

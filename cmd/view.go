@@ -8,6 +8,7 @@ import (
 
 	"github.com/brandtg/rtfm/internal/common"
 	"github.com/brandtg/rtfm/internal/java"
+	"github.com/brandtg/rtfm/internal/javascript"
 	"github.com/brandtg/rtfm/internal/python"
 	"github.com/spf13/cobra"
 )
@@ -47,6 +48,22 @@ var pythonViewCmd = &cobra.Command{
 			panic(err)
 		}
 	},
+	Args: cobra.ExactArgs(1),
+}
+
+var javascriptViewCmd = &cobra.Command{
+	Use:   "javascript",
+	Short: "A subcommand for view",
+	Run: func(cmd *cobra.Command, args []string) {
+		source, _ := cmd.Flags().GetBool("source")
+		outputDir := common.EnsureOutputDir()
+		_, err := javascript.View(outputDir, args[0], source)
+		if err != nil {
+			slog.Error("Error viewing javascript modules", "error", err)
+			panic(err)
+		}
+	},
+	Args: cobra.ExactArgs(1),
 }
 
 func init() {
@@ -55,4 +72,6 @@ func init() {
 	viewCmd.AddCommand(javaViewCmd)
 	pythonViewCmd.Flags().BoolP("source", "s", false, "Show source code")
 	viewCmd.AddCommand(pythonViewCmd)
+	javascriptViewCmd.Flags().BoolP("source", "s", false, "Show source code")
+	viewCmd.AddCommand(javascriptViewCmd)
 }
