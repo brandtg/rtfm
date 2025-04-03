@@ -24,14 +24,14 @@ func Find(
 		return nil, err
 	}
 	defer db.Close()
-    // Resolve venv if it's not absolute
-    if venv != "" {
-        venv, err = filepath.Abs(venv)
-        if err != nil {
-            slog.Error("Error resolving venv", "error", err)
-            return nil, err
-        }
-    }
+	// Resolve venv if it's not absolute
+	if venv != "" {
+		venv, err = filepath.Abs(venv)
+		if err != nil {
+			slog.Error("Error resolving venv", "error", err)
+			return nil, err
+		}
+	}
 	// Search for Python modules matching pattern
 	pythonModules, err := listPythonModules(db, venv, pattern, exact)
 	if err != nil {

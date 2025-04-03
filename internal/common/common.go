@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 )
 
 func EnsureOutputDir() string {
@@ -40,4 +41,13 @@ func Exists(file string) bool {
 
 func AtLeastOneFileExists(files []string) bool {
 	return slices.ContainsFunc(files, Exists)
+}
+
+func HasAnySuffix(filename string, suffixes ...string) bool {
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(filename, suffix) {
+			return true
+		}
+	}
+	return false
 }
