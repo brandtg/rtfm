@@ -41,7 +41,11 @@ func View(baseOutputDir string, target string, showSource bool) (*PythonModule, 
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(string(source))
+		code, err := common.HighlightCode(string(source), "python")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(code)
 	} else {
 		// Output the pydoc
 		pydoc, err := readPydoc(module)

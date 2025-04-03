@@ -27,7 +27,11 @@ func View(baseOutputDir string, target string, showSource bool) (*JavaScriptModu
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(string(source))
+		code, err := common.HighlightCode(string(source), "javascript")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(code)
 	} else {
 		// Output the documentation (TODO - needs to be computed first)
 		fmt.Println("Documentation not yet implemented")
