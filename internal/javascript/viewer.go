@@ -21,9 +21,11 @@ func View(baseOutputDir string, target string, showSource bool) (*JavaScriptModu
 	if err != nil {
 		return nil, err
 	}
+	// Compute full path
+	path := filepath.Join(javaScriptModule.Package.NodeModulesDir, javaScriptModule.Path)
 	if showSource {
 		// Output the source code
-		source, err := os.ReadFile(filepath.Join(javaScriptModule.Package.NodeModulesDir, javaScriptModule.Path))
+		source, err := os.ReadFile(path)
 		if err != nil {
 			return nil, err
 		}
@@ -33,8 +35,12 @@ func View(baseOutputDir string, target string, showSource bool) (*JavaScriptModu
 		}
 		fmt.Println(code)
 	} else {
-		// Output the documentation (TODO - needs to be computed first)
-		fmt.Println("Documentation not yet implemented")
+		// Output the JSDoc
+		doc, err := ParseJSDoc(path)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(doc)
 	}
 	return nil, nil
 }
