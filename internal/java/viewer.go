@@ -27,7 +27,11 @@ func View(baseOutputDir string, target string, showSource bool) (*JavaClass, err
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println(string(source))
+		code, err := common.HighlightCode(string(source), "java")
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(code)
 	} else {
 		// Format the Javadoc as Markdown
 		markdown := FormatMarkdown(outputDir, javaClass)
