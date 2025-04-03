@@ -22,7 +22,7 @@ func installNpmLibrary(installDir string, library string) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to install typedoc: %w", err)
 	}
-	slog.Info("Installed library", "library", library, "installDir", installDir)
+	slog.Debug("Installed library", "library", library, "installDir", installDir)
 	return nil
 }
 
@@ -30,7 +30,7 @@ func checkInstall() (string, error) {
 	// Create directory for node project
 	installDir := filepath.Join(common.EnsureOutputDir(), "javascript", "jsdoc")
 	if common.Exists(installDir) {
-		slog.Info("JSDoc already installed", "installDir", installDir)
+		slog.Debug("JSDoc already installed", "installDir", installDir)
 		return installDir, nil
 	}
 	// Initialize the node project
@@ -40,7 +40,7 @@ func checkInstall() (string, error) {
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to initialize node project: %w", err)
 	}
-	slog.Info("Initialized node project", "installDir", installDir)
+	slog.Debug("Initialized node project", "installDir", installDir)
 	// Install libraries
 	for _, library := range []string{"jsdoc", "typedoc", "jsdoc-to-markdown"} {
 		err := installNpmLibrary(installDir, library)
@@ -54,7 +54,7 @@ func checkInstall() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to write jsdoc config file: %w", err)
 	}
-	slog.Info("Created empty jsdoc config file", "path", configFilePath)
+	slog.Debug("Created empty jsdoc config file", "path", configFilePath)
 	return installDir, nil
 }
 

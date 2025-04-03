@@ -109,9 +109,9 @@ var javascriptSelectCmd = &cobra.Command{
 		checkFzfInstalled()
 		findArgs := []string{"javascript"}
 		findArgs = append(findArgs, args...)
-		venv, _ := cmd.Flags().GetString("venv")
-		if venv != "" {
-			findArgs = append(findArgs, "--venv", venv)
+		nodeModules, _ := cmd.Flags().GetString("node-modules")
+		if nodeModules != "" {
+			findArgs = append(findArgs, "--node-modules", nodeModules)
 		}
 		findOutput := runFindCommand(findArgs)
 		selection := runFzf(findOutput)
@@ -133,5 +133,6 @@ func init() {
 	pythonSelectCmd.Flags().StringP("venv", "v", "", "Python virtual environment")
 	rootCmd.AddCommand(selectCmd)
 	javascriptSelectCmd.Flags().BoolP("source", "s", false, "View sources")
+	javascriptSelectCmd.Flags().StringP("node-modules", "n", "", "Node modules directory")
 	selectCmd.AddCommand(javascriptSelectCmd)
 }
