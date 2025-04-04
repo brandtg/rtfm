@@ -58,11 +58,7 @@ func checkInstall() (string, error) {
 	return installDir, nil
 }
 
-func ParseJSDoc(target string) (string, error) {
-	installDir, err := checkInstall()
-	if err != nil {
-		return "", err
-	}
+func jsdocMarkdown(installDir string, target string) (string, error) {
 	// TODO This generates the default markdown, but we can provide --json to get the structured
 	// data that's provided to the template, in order to render something simpler / more appropriate
 	// for the terminal.
@@ -74,5 +70,17 @@ func ParseJSDoc(target string) (string, error) {
 		return "", fmt.Errorf("failed to run jsdoc2md: %w: %s", err, string(output))
 	}
 	doc := string(output)
+	return doc, nil
+}
+
+func ParseJSDoc(target string) (string, error) {
+	installDir, err := checkInstall()
+	if err != nil {
+		return "", err
+	}
+	doc, err := jsdocMarkdown(installDir, target)
+	if err != nil {
+		return "", err
+	}
 	return doc, nil
 }
