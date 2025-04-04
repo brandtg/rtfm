@@ -42,7 +42,7 @@ func checkInstall() (string, error) {
 	}
 	slog.Debug("Initialized node project", "installDir", installDir)
 	// Install libraries
-	for _, library := range []string{"jsdoc", "typedoc", "jsdoc-to-markdown"} {
+	for _, library := range []string{"jsdoc", "typedoc", "jsdoc-to-markdown", "esprima", "@babel/parser"} {
 		err := installNpmLibrary(installDir, library)
 		if err != nil {
 			return "", fmt.Errorf("failed to install %s: %w", library, err)
@@ -55,6 +55,22 @@ func checkInstall() (string, error) {
 		return "", fmt.Errorf("failed to write jsdoc config file: %w", err)
 	}
 	slog.Debug("Created empty jsdoc config file", "path", configFilePath)
+	// Write the script to parse AST using @babel/parser
+	script := `
+	const parser = require("@babel/parser");
+	const fs = require("fs");
+	const code = fs.readFileSync(process.argv[1], "utf8");
+	const ast = parser.parse(code, {
+		sourceType: "unambiguous",
+		plugins: ["jsx", "typescript", "classProperties", "decorators-legacy"],
+	});
+	console.log(JSON.stringify(ast, null, 2));
+	`
+	scriptFilePath := filepath.Join(installDir, "parse-ast.js")
+	err = os.WriteFile(scriptFilePath, []byte(script), 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write jsdoc script file: %w", err)
+	}
 	return installDir, nil
 }
 
