@@ -28,6 +28,15 @@ func installNpmLibrary(installDir string, library string) error {
 	return nil
 }
 
+var libraries = []string{
+	"jsdoc",
+	"typedoc",
+	"jsdoc-to-markdown",
+	"esprima",
+	"@babel/parser",
+	"comment-parser",
+}
+
 func checkInstall() (string, error) {
 	// Create directory for node project
 	installDir := filepath.Join(common.EnsureOutputDir(), "javascript", "jsdoc")
@@ -44,7 +53,7 @@ func checkInstall() (string, error) {
 	}
 	slog.Debug("Initialized node project", "installDir", installDir)
 	// Install libraries
-	for _, library := range []string{"jsdoc", "typedoc", "jsdoc-to-markdown", "esprima", "@babel/parser"} {
+	for _, library := range libraries {
 		err := installNpmLibrary(installDir, library)
 		if err != nil {
 			return "", fmt.Errorf("failed to install %s: %w", library, err)
@@ -52,7 +61,7 @@ func checkInstall() (string, error) {
 	}
 	// Write an empty configuration file for jsdoc
 	configFilePath := filepath.Join(installDir, "empty-config.json")
-	err := os.WriteFile(configFilePath, []byte("{}"), 0644)
+	err := os.WriteFile(configFilePath, []byte("{}"), 0o644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write jsdoc config file: %w", err)
 	}
@@ -69,7 +78,31 @@ func checkInstall() (string, error) {
 	console.log(JSON.stringify(ast, null, 2));
 	`
 	scriptFilePath := filepath.Join(installDir, "parse-ast.js")
-	err = os.WriteFile(scriptFilePath, []byte(script), 0644)
+	err = os.WriteFile(scriptFilePath, []byte(script), 0o644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write jsdoc script file: %w", err)
+	}
+	// Write the script to parse JSDoc comments
+	jsdocScript := `
+	const { parse } = require("comment-parser");
+
+	let input = "";
+	process.stdin.on("data", (chunk) => {
+		input += chunk;
+	});
+
+	process.stdin.on("end", () => {
+		try {
+			const parsed = parse(input);
+			console.log(JSON.stringify(parsed, null, 2));
+		} catch (err) {
+			console.error("Failed to parse JSDoc:", err.message);
+			process.exit(1);
+		}
+	});
+	`
+	jsdocScriptFilePath := filepath.Join(installDir, "parse-jsdoc.js")
+	err = os.WriteFile(jsdocScriptFilePath, []byte(jsdocScript), 0o644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write jsdoc script file: %w", err)
 	}
@@ -103,16 +136,87 @@ func ParseJSDoc(target string) (string, error) {
 	return doc, nil
 }
 
-type ASTFunction struct {
-	Name	   string
-	Parameters []string
+type ASTFunctionDocTag struct {
+	Tag         string
+	Name        string
+	Type        string
+	Optional    bool
+	Description string
 }
 
-func parseASTFunction(node map[string]any) (*ASTFunction, error) {
+type ASTFunctionDoc struct {
+	Description string
+	Tags        []*ASTFunctionDocTag
+}
+
+type ASTFunction struct {
+	Name       string
+	Parameters []string
+	Docs       []*ASTFunctionDoc
+}
+
+func parseASTFunctionDoc(installDir string, node map[string]any) ([]*ASTFunctionDoc, error) {
+	docs := make([]*ASTFunctionDoc, 0)
+	// Get all leading comments on this node
+	leadingComments, ok := node["leadingComments"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse leading comments")
+	}
+	for _, comment := range leadingComments {
+		// Extract the comment text
+		value, ok := comment.(map[string]any)["value"]
+		if !ok {
+			return nil, fmt.Errorf("failed to parse comment value")
+		}
+		value = "/*" + value.(string) + "*/"
+		// Run script to parse jsdoc
+		cmd := exec.Command("npx", "--yes", "--package=comment-parser", "node", "parse-jsdoc.js")
+		cmd.Dir = installDir
+		cmd.Stdin = strings.NewReader(value.(string))
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return nil, err
+		}
+		var results []any
+		if err := json.Unmarshal(output, &results); err != nil {
+			return nil, err
+		}
+		// Process structured jsdoc output
+		for _, result := range results {
+			// Description
+			description := result.(map[string]any)["description"].(string)
+			// Tags
+			tagsNode, ok := result.(map[string]any)["tags"].([]any)
+			if !ok {
+				return nil, fmt.Errorf("failed to parse tags")
+			}
+			tags := make([]*ASTFunctionDocTag, 0)
+			for _, tagNode := range tagsNode {
+				tags = append(tags, &ASTFunctionDocTag{
+					Tag:         tagNode.(map[string]any)["tag"].(string),
+					Name:        tagNode.(map[string]any)["name"].(string),
+					Type:        tagNode.(map[string]any)["type"].(string),
+					Optional:    tagNode.(map[string]any)["optional"].(bool),
+					Description: tagNode.(map[string]any)["description"].(string),
+				})
+			}
+			// Record
+			docs = append(docs, &ASTFunctionDoc{
+				Description: description,
+				Tags:        tags,
+			})
+		}
+	}
+	return docs, nil
+}
+
+func parseASTFunction(installDir string, node map[string]any) (*ASTFunction, error) {
+	// Name
 	name, ok := node["id"].(map[string]any)["name"].(string)
 	if !ok {
 		return nil, fmt.Errorf("failed to parse function name")
 	}
+	// Parameters
 	paramNodes, ok := node["params"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("failed to parse function parameters")
@@ -127,9 +231,22 @@ func parseASTFunction(node map[string]any) (*ASTFunction, error) {
 			params = append(params, param)
 		}
 	}
+	// Documentation
+	docs, err := parseASTFunctionDoc(installDir, node)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse function doc: %w", err)
+	}
+	for _, doc := range docs {
+		slog.Info("function doc", "description", doc.Description)
+		for _, tag := range doc.Tags {
+			slog.Info("function tag", "tag",
+				tag.Tag, "name", tag.Name, "type", tag.Type, "optional", tag.Optional, "description", tag.Description)
+		}
+	}
 	return &ASTFunction{
-		Name: name,
+		Name:       name,
 		Parameters: params,
+		Docs:       docs,
 	}, nil
 }
 
@@ -194,7 +311,7 @@ func parseAST(
 	for _, node := range body {
 		switch node.(map[string]any)["type"] {
 		case "FunctionDeclaration":
-			astFunction, err := parseASTFunction(node.(map[string]any))
+			astFunction, err := parseASTFunction(installDir, node.(map[string]any))
 			if err != nil {
 				return nil, err
 			}
@@ -222,11 +339,25 @@ func makeASTMarkdown(path string, ast *AST) string {
 	builder.WriteString("Functions\n")
 	builder.WriteString(strings.Repeat("-", len("Functions")) + "\n")
 	for _, function := range ast.Functions {
+		// Signature
 		builder.WriteString(fmt.Sprintf("%s(", function.Name))
 		if len(function.Parameters) > 0 {
 			builder.WriteString(strings.Join(function.Parameters, ", "))
 		}
 		builder.WriteString(")\n")
+		// Docs
+		for _, doc := range function.Docs {
+			builder.WriteString(fmt.Sprintf("  %s\n", doc.Description))
+			for _, tag := range doc.Tags {
+				switch tag.Tag {
+				case "param":
+					builder.WriteString(fmt.Sprintf("  - @%s {%s} %s %s\n", tag.Tag, tag.Type, tag.Name, tag.Description))
+				case "return":
+					// N.b. return in the parser assumes a name, so concatenate them
+					builder.WriteString(fmt.Sprintf("  - @%s %s %s\n", tag.Tag, tag.Name, tag.Description))
+				}
+			}
+		}
 	}
 	// Variables
 	builder.WriteString("\nVariables\n")
@@ -239,27 +370,15 @@ func makeASTMarkdown(path string, ast *AST) string {
 
 func DemoASTParser(
 	path string,
-) error {
+) (string, error) {
 	installDir, err := checkInstall()
 	if err != nil {
-		return err
+		return "", err
 	}
 	ast, err := parseAST(installDir, path)
 	if err != nil {
-		return err
+		return "", err
 	}
-
-	// for _, variable := range ast.Variables {
-	// 	slog.Info("Variable", "name", variable.Name, "kind", variable.Kind)
-	// }
-	// for _, function := range ast.Functions {
-	// 	slog.Info("Function", "name", function.Name, "parameters", function.Parameters)
-	// 	for _, param := range function.Parameters {
-	// 		slog.Info("Parameter", "name", param)
-	// 	}
-	// }
 	markdown := makeASTMarkdown(path, ast)
-	fmt.Println(markdown)
-
-	return nil
+	return markdown, nil
 }
