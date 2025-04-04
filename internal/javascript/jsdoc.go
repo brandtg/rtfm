@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/brandtg/rtfm/internal/common"
 )
@@ -212,6 +213,30 @@ func parseAST(
 	}, nil
 }
 
+func makeASTMarkdown(path string, ast *AST) string {
+	var builder strings.Builder
+	// Path
+	builder.WriteString(path + "\n")
+	builder.WriteString(strings.Repeat("=", len(path)) + "\n\n")
+	// Functions
+	builder.WriteString("Functions\n")
+	builder.WriteString(strings.Repeat("-", len("Functions")) + "\n")
+	for _, function := range ast.Functions {
+		builder.WriteString(fmt.Sprintf("%s(", function.Name))
+		if len(function.Parameters) > 0 {
+			builder.WriteString(strings.Join(function.Parameters, ", "))
+		}
+		builder.WriteString(")\n")
+	}
+	// Variables
+	builder.WriteString("\nVariables\n")
+	builder.WriteString(strings.Repeat("-", len("Variables")) + "\n")
+	for _, variable := range ast.Variables {
+		builder.WriteString(fmt.Sprintf("%s %s\n", variable.Kind, variable.Name))
+	}
+	return builder.String()
+}
+
 func DemoASTParser(
 	path string,
 ) error {
@@ -224,15 +249,17 @@ func DemoASTParser(
 		return err
 	}
 
-	for _, variable := range ast.Variables {
-		slog.Info("Variable", "name", variable.Name, "kind", variable.Kind)
-	}
-	for _, function := range ast.Functions {
-		slog.Info("Function", "name", function.Name, "parameters", function.Parameters)
-		for _, param := range function.Parameters {
-			slog.Info("Parameter", "name", param)
-		}
-	}
+	// for _, variable := range ast.Variables {
+	// 	slog.Info("Variable", "name", variable.Name, "kind", variable.Kind)
+	// }
+	// for _, function := range ast.Functions {
+	// 	slog.Info("Function", "name", function.Name, "parameters", function.Parameters)
+	// 	for _, param := range function.Parameters {
+	// 		slog.Info("Parameter", "name", param)
+	// 	}
+	// }
+	markdown := makeASTMarkdown(path, ast)
+	fmt.Println(markdown)
 
 	return nil
 }
