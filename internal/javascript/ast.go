@@ -1,37 +1,43 @@
 package javascript
 
 import (
-	"fmt"
 	"log/slog"
 
-	"github.com/robertkrimen/otto"
+	"github.com/robertkrimen/otto/ast"
+	"github.com/robertkrimen/otto/parser"
 )
 
+// TODO Call out to acorn instead? https://github.com/acornjs/acorn
+
 func DemoASTParser() {
-	vm := otto.New()
 
 	// JavaScript code to parse
 	jsCode := `
+		/**
+		 * This is a simple JavaScript function
+		 */
 		function add(a, b) {
+			// This is a simple JavaScript function
 			return a + b;
 		}
+
+		var x = 10;
 	`
 
-	// Evaluate the JavaScript code
-	_, err := vm.Run(jsCode)
+	program, err := parser.ParseFile(nil, "example.js", jsCode, 0)
 	if err != nil {
-		fmt.Println("Error:", err)
+		slog.Error("Error parsing JavaScript code", "error", err)
 		return
 	}
 
-	// Example: Accessing a function or variable
-	value, err := vm.Get("add")
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
+	for _, stmt := range program.Body {
+		switch s := stmt.(type) {
+		case *ast.FunctionStatement:
+			slog.Info("Function Statement", "name", s.Function.Name)
+			slog.Info("Function Parameters", "params", s.Function.ParameterList)
+			for _, param := range s.Function.ParameterList.List {
+				slog.Info("Parameter", "name", param.Name)
+			}
+		}
 	}
-
-	slog.Info("Function 'add' found", "isFunction", value.IsFunction())
-
-	fmt.Println("Function 'add':", value)
 }
