@@ -6,7 +6,6 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.2
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056
 	github.com/mattn/go-sqlite3 v1.14.24
-	github.com/robertkrimen/otto v0.5.1
 	golang.org/x/text v0.23.0
 )
 

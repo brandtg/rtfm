@@ -2,42 +2,17 @@ package javascript
 
 import (
 	"log/slog"
-
-	"github.com/robertkrimen/otto/ast"
-	"github.com/robertkrimen/otto/parser"
+	"os"
 )
 
 // TODO Call out to acorn instead? https://github.com/acornjs/acorn
+// Otto doesn't support ES6+, so it's kind of useless for this.
 
-func DemoASTParser() {
-
-	// JavaScript code to parse
-	jsCode := `
-		/**
-		 * This is a simple JavaScript function
-		 */
-		function add(a, b) {
-			// This is a simple JavaScript function
-			return a + b;
-		}
-
-		var x = 10;
-	`
-
-	program, err := parser.ParseFile(nil, "example.js", jsCode, 0)
+func DemoASTParser(path string) error {
+	jsCode, err := os.ReadFile(path)
 	if err != nil {
-		slog.Error("Error parsing JavaScript code", "error", err)
-		return
+		return err
 	}
-
-	for _, stmt := range program.Body {
-		switch s := stmt.(type) {
-		case *ast.FunctionStatement:
-			slog.Info("Function Statement", "name", s.Function.Name)
-			slog.Info("Function Parameters", "params", s.Function.ParameterList)
-			for _, param := range s.Function.ParameterList.List {
-				slog.Info("Parameter", "name", param.Name)
-			}
-		}
-	}
+	slog.Info("Parsing JavaScript code", "jsCode", string(jsCode))
+	return nil
 }

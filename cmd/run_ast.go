@@ -9,7 +9,7 @@ var runAstCmd = &cobra.Command{
 	Use:   "run_ast",
 	Short: "A subcommand for AST",
 	Run: func(cmd *cobra.Command, args []string) {
-		javascript.DemoASTParser()
+		javascript.DemoASTParser(args[0])
 	},
 
 }
