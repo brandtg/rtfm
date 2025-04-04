@@ -102,69 +102,114 @@ func ParseJSDoc(target string) (string, error) {
 	return doc, nil
 }
 
+type ASTFunction struct {
+	Name	   string
+	Parameters []string
+}
+
+func parseASTFunction(node map[string]any) (*ASTFunction, error) {
+	name, ok := node["id"].(map[string]any)["name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse function name")
+	}
+	paramNodes, ok := node["params"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse function parameters")
+	}
+	params := make([]string, 0)
+	for _, paramNode := range paramNodes {
+		param, ok := paramNode.(map[string]any)["name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse parameter name")
+		}
+		if param != "" {
+			params = append(params, param)
+		}
+	}
+	return &ASTFunction{
+		Name: name,
+		Parameters: params,
+	}, nil
+}
+
+type ASTVariable struct {
+	Kind string
+	Name string
+}
+
+func parseASTVariables(node map[string]any) ([]*ASTVariable, error) {
+	declarations, ok := node["declarations"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse variable declarations")
+	}
+	variables := make([]*ASTVariable, 0)
+	for _, declaration := range declarations {
+		name, ok := declaration.(map[string]any)["id"].(map[string]any)["name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse variable name")
+		}
+		kind, ok := node["kind"].(string)
+		if !ok {
+			return nil, fmt.Errorf("failed to parse variable kind")
+		}
+		if name != "" && kind != "" {
+			variables = append(variables, &ASTVariable{
+				Name: name,
+				Kind: kind,
+			})
+		}
+	}
+	return variables, nil
+}
+
+type AST struct {
+	Functions []*ASTFunction
+	Variables []*ASTVariable
+}
+
 func parseAST(
 	installDir string,
 	path string,
-) (*map[string]any, error) {
+) (*AST, error) {
+	// Use babel to compute the AST
 	cmd := exec.Command("npx", "--yes", "--package=@babel/parser", "node", "parse-ast.js", path)
 	cmd.Dir = installDir
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(string(output))
+	// Parse output as JSON
 	var result map[string]any
 	if err := json.Unmarshal(output, &result); err != nil {
 		return nil, err
 	}
-
-	/*
-
-➜  rtfm git:(brandtg/jsdoc-ast) ✗ cat ~/Desktop/test.js
-
-var myFunctionVariable = () => console.log("hello world");
-
-function myFunction() {
-    console.log("Hello world");
-}
-
-	.program.body[] appears to be the list of AST nodes
-
-➜  rtfm git:(brandtg/jsdoc-ast) ✗ jq '.program.body[].type' tmp/ast.json
-"VariableDeclaration"
-"VariableDeclaration"
-"VariableDeclaration"
-"VariableDeclaration"
-"ExpressionStatement"
-
-➜  rtfm git:(brandtg/jsdoc-ast) ✗ jq '.program.body[].kind' tmp/ast.json
-"const"
-"const"
-"const"
-"const"
-null
-
-Some of this is comming from that wrapper script
-
-	const parser = require("@babel/parser");
-	const fs = require("fs");
-	const code = fs.readFileSync(process.argv[1], "utf8");
-	const ast = parser.parse(code, {
-		sourceType: "unambiguous",
-		plugins: ["jsx", "typescript", "classProperties", "decorators-legacy"],
-	});
-	console.log(JSON.stringify(ast, null, 2));
-
-	*/
-
-	// value, ok := result["keyName"].(string)
-	// if !ok {
-	//     // Handle the case where the value is not a string
-	//     return fmt.Errorf("keyName is not a string")
-	// }
-	// fmt.Println("Value:", value)
-
-	return &result, nil
+	// Find all the functions and variables in the AST
+	allASTFunctions := make([]*ASTFunction, 0)
+	allASTVariables := make([]*ASTVariable, 0)
+	body, ok := result["program"].(map[string]any)["body"].([]any)
+	if !ok {
+		return nil, fmt.Errorf("failed to parse AST body")
+	}
+	for _, node := range body {
+		switch node.(map[string]any)["type"] {
+		case "FunctionDeclaration":
+			astFunction, err := parseASTFunction(node.(map[string]any))
+			if err != nil {
+				return nil, err
+			}
+			allASTFunctions = append(allASTFunctions, astFunction)
+		case "VariableDeclaration":
+			astVariables, err := parseASTVariables(node.(map[string]any))
+			if err != nil {
+				return nil, err
+			}
+			allASTVariables = append(allASTVariables, astVariables...)
+		}
+	}
+	return &AST{
+		Functions: allASTFunctions,
+		Variables: allASTVariables,
+	}, nil
 }
 
 func DemoASTParser(
@@ -178,13 +223,16 @@ func DemoASTParser(
 	if err != nil {
 		return err
 	}
-	slog.Debug("Parsed AST", "ast", ast)
-	// jsCode, err := os.ReadFile(path)
-	// if err != nil {
-	// 	return err
-	// }
-	// slog.Info("Parsing JavaScript code", "jsCode", string(jsCode))
-	// npx --yes --package=@babel/parser node parse-ast.js ~/Desktop/test.js
+
+	for _, variable := range ast.Variables {
+		slog.Info("Variable", "name", variable.Name, "kind", variable.Kind)
+	}
+	for _, function := range ast.Functions {
+		slog.Info("Function", "name", function.Name, "parameters", function.Parameters)
+		for _, param := range function.Parameters {
+			slog.Info("Parameter", "name", param)
+		}
+	}
 
 	return nil
 }
