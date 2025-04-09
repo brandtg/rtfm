@@ -216,7 +216,7 @@ func jdkClassUrl(link Link) string {
 	suffix := tokens[1:]
 	path := append([]string{prefix, "share", "classes"}, suffix...)
 	url := strings.Join(path, "/")
-	url = "https://github.com/openjdk/jdk/blob/master/src/" + strings.ReplaceAll(url, ".html", ".java")
+	url = "https://raw.githubusercontent.com/openjdk/jdk/refs/heads/master/src/" + strings.ReplaceAll(url, ".html", ".java")
 	return url
 }
 
