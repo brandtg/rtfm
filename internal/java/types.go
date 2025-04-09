@@ -2,6 +2,7 @@ package java
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -37,7 +38,9 @@ type JavaClass struct {
 }
 
 func javaOutputDir(baseOutputDir string) string {
-	return filepath.Join(baseOutputDir, "java")
+	dir := filepath.Join(baseOutputDir, "java")
+	os.MkdirAll(dir, os.ModePerm)
+	return dir
 }
 
 func (j *JavaClass) key() string {
