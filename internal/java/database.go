@@ -4,12 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/brandtg/rtfm/internal/common"
 )
 
-// TODO Change this to have the application key as the primary key
 func createTables(db *sql.DB) error {
 	_, err := db.Exec(`
     CREATE TABLE IF NOT EXISTS java_class (
@@ -125,10 +123,10 @@ func listJavaClasses(
 }
 
 func fetchJavaClass(db *sql.DB, target string) (*JavaClass, error) {
-	tokens := strings.Split(target, ":")
-	if len(tokens) != 4 {
-		return nil, fmt.Errorf("invalid target format: %s", target)
-	}
+	// tokens := strings.Split(target, ":")
+	// if len(tokens) != 4 {
+	// 	return nil, fmt.Errorf("invalid target format: %s", target)
+	// }
 	rows, err := db.Query(`
         SELECT
             name
@@ -141,11 +139,8 @@ func fetchJavaClass(db *sql.DB, target string) (*JavaClass, error) {
         FROM
             java_class
         WHERE
-            artifact_group_id = ?
-            AND artifact_id = ?
-            AND artifact_version = ?
-            AND name = ?
-    `, tokens[0], tokens[1], tokens[2], tokens[3])
+			key = ?
+    `, target)
 	if err != nil {
 		return nil, err
 	}

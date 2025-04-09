@@ -1,13 +1,16 @@
 package java
 
 import (
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/brandtg/rtfm/internal/common"
 	"github.com/mitchellh/go-wordwrap"
 )
 
@@ -318,20 +321,58 @@ func formatMarkdownDocument(
 	return strings.Join(lines, "\n")
 }
 
-func FormatMarkdown(outputDir string, javaClass *JavaClass) string {
-	filename := filepath.Join(outputDir, javaClass.Path)
-	// Open the file
-	r, err := os.Open(filename)
-	if err != nil {
-		slog.Error("Error opening file", "filename", filename, "error", err)
-		os.Exit(1)
+func readJavadocHtml(outputDir string, javaClass *JavaClass) (string, error) {
+	if strings.HasPrefix(javaClass.Path, "http") {
+		// Check if we've cached the file
+		cachedFile := filepath.Join(outputDir, "javadoc", "_jdk", javaClass.Name)
+		if common.Exists(cachedFile) {
+			// Read it
+			data, err := os.ReadFile(cachedFile)
+			if err != nil {
+				return "", err
+			}
+			return string(data), nil
+		}
+		// Fetch the HTML from the web
+		resp, err := http.Get(javaClass.Path)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+		// Cache the result
+		err = os.MkdirAll(filepath.Dir(cachedFile), 0755)
+		if err != nil {
+			slog.Warn("Failed to create javadoc cache directory", "path", cachedFile, "error", err)
+		}
+		err = os.WriteFile(cachedFile, bodyBytes, 0644)
+		if err != nil {
+			slog.Warn("Failed to cache javadoc HTML", "path", javaClass.Path, "error", err)
+		}
+		return string(bodyBytes), nil
 	}
-	defer r.Close()
-	// Parse HTML document
-	doc, err := goquery.NewDocumentFromReader(r)
+	// Read the HTML from the file
+	filename := filepath.Join(outputDir, javaClass.Path)
+	data, err := os.ReadFile(filename)
 	if err != nil {
-		slog.Error("Error parsing HTML", "filename", filename, "error", err)
-		os.Exit(1)
+		return "", err
+	}
+	return string(data), nil
+}
+
+func FormatMarkdown(outputDir string, javaClass *JavaClass) (string, error) {
+	// Read the HTML
+	html, err := readJavadocHtml(outputDir, javaClass)
+	if err != nil {
+		return "", err
+	}
+	// Parse HTML document
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	if err != nil {
+		return "", err
 	}
 	title := doc.Find("title").Text()
 	header := parseHeader(doc)
@@ -353,5 +394,5 @@ func FormatMarkdown(outputDir string, javaClass *JavaClass) string {
 		constructors,
 		methods,
 		enumOptions,
-		inheritedMethods)
+		inheritedMethods), nil
 }

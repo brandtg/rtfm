@@ -2,6 +2,7 @@ package java
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,6 +45,18 @@ func javaOutputDir(baseOutputDir string) string {
 }
 
 func (j *JavaClass) key() string {
+	// JDK classes
+	if strings.HasPrefix(j.Path, "https://docs.oracle.com") {
+		url, err := url.Parse(j.Path)
+		if err != nil {
+			panic(err)
+		}
+		version := strings.Split(strings.Replace(url.Path, "/en/java/javase/", "", 1), "/")[0]
+		return fmt.Sprintf(
+			"jdk:java.base:%s:%s",
+			version,
+			j.Name)
+	}
 	return fmt.Sprintf(
 		"%s:%s:%s:%s",
 		j.Artifact.GroupId,
