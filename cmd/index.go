@@ -4,62 +4,57 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"log/slog"
-
-	"github.com/brandtg/rtfm/internal/common"
-	"github.com/brandtg/rtfm/internal/java"
-	"github.com/brandtg/rtfm/internal/javascript"
-	"github.com/brandtg/rtfm/internal/python"
+	"github.com/brandtg/rtfm/app/java"
+	"github.com/brandtg/rtfm/app/javascript"
+	"github.com/brandtg/rtfm/app/python"
 	"github.com/spf13/cobra"
 )
 
+// indexCmd represents the index command
 var indexCmd = &cobra.Command{
 	Use:   "index",
-	Short: "Indexes code and documentation for different programming languages",
+	Short: "Index third party libraries",
 	Run: func(cmd *cobra.Command, args []string) {
-		_ = cmd.Usage()
-	},
-}
-
-var javaIndexCmd = &cobra.Command{
-	Use:   "java",
-	Short: "Indexes Java code and documentation",
-	Run: func(cmd *cobra.Command, args []string) {
-		outputDir := common.EnsureOutputDir()
-		err := java.Index(outputDir)
+		// Parse arguments
+		langName, err := cmd.Flags().GetString("lang")
 		if err != nil {
-			slog.Error("Error indexing Java", "error", err)
+			panic(err)
 		}
-	},
-}
-
-var pythonIndexCmd = &cobra.Command{
-	Use:   "python",
-	Short: "Indexes Python code and documentation",
-	Run: func(cmd *cobra.Command, args []string) {
-		outputDir := common.EnsureOutputDir()
-		err := python.Index(outputDir)
-		if err != nil {
-			slog.Error("Error indexing Python", "error", err)
+		// Java
+		if langName == "" || langName == "java" {
+			err = java.Index()
+			if err != nil {
+				panic(err)
+			}
 		}
-	},
-}
-
-var javascriptIndexCmd = &cobra.Command{
-	Use:   "javascript",
-	Short: "Indexes JavaScript code and documentation",
-	Run: func(cmd *cobra.Command, args []string) {
-		outputDir := common.EnsureOutputDir()
-		err := javascript.Index(outputDir)
-		if err != nil {
-			slog.Error("Error indexing JavaScript", "error", err)
+		// Python
+		if langName == "" || langName == "python" {
+			err = python.Index()
+			if err != nil {
+				panic(err)
+			}
+		}
+		// JavaScript
+		if langName == "" || langName == "javascript" {
+			err = javascript.Index()
+			if err != nil {
+				panic(err)
+			}
 		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(indexCmd)
-	indexCmd.AddCommand(javaIndexCmd)
-	indexCmd.AddCommand(pythonIndexCmd)
-	indexCmd.AddCommand(javascriptIndexCmd)
+
+	// Here you will define your flags and configuration settings.
+
+	// Cobra supports Persistent Flags which will work for this command
+	// and all subcommands, e.g.:
+	// indexCmd.PersistentFlags().String("foo", "", "A help for foo")
+
+	// Cobra supports local flags which will only run when this command
+	// is called directly, e.g.:
+	// indexCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	indexCmd.Flags().StringP("lang", "l", "", "Language to index")
 }

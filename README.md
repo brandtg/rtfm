@@ -1,10 +1,14 @@
 # rtfm
 
-Annotation
 
-go run ./cmd/javadoc2md /home/gbrandt/.local/share/rtfm/java/javadoc/args4j/args4j/2.37/args4j/org/kohsuke/args4j/Argument.html
+Build project
 
-Class
+```bash
+make build
+```
 
-go run ./cmd/javadoc2md /home/gbrandt/.local/share/rtfm/java/javadoc/args4j/args4j/2.37/args4j/org/kohsuke/args4j/NamedOptionDef.html
+Index code and documentation
 
+```bash
+./bin/rtfm index 
+```
