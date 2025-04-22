@@ -8,13 +8,49 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/brandtg/rtfm/internal/common"
+	"github.com/brandtg/rtfm/app/common"
 )
 
-func pythonOutputDir(baseOutputDir string) string {
-	dir := filepath.Join(baseOutputDir, "python")
-	os.MkdirAll(dir, os.ModePerm)
-	return dir
+func Index() error {
+	slog.Info("Indexing Python modules...")
+	// Connect to the database
+	db, err := common.OpenDB()
+	if err != nil {
+		return fmt.Errorf("error opening database: %w", err)
+	}
+	defer db.Close()
+	// Find virtual environment modules
+	venvs, err := findVirtualEnvironments()
+	if err != nil {
+		return fmt.Errorf("error finding virtual environments: %w", err)
+	}
+	// Find modules in each virtual environment
+	var modules []PythonModule
+	var documents []*common.SearchDocument
+	for _, venv := range venvs {
+		slog.Info("Found virtual environment", "venv", venv)
+		modules, err = findModules(venv)
+		if err != nil {
+			return fmt.Errorf("error finding modules in virtual environment %s: %w", venv, err)
+		}
+		// Create a search document for each module
+		for _, module := range modules {
+			doc := &common.SearchDocument{
+				Language: common.Python,
+				Name:     module.Name,
+				Path:     module.Path,
+			}
+			documents = append(documents, doc)
+		}
+	}
+	// TODO Find standard library modules
+	// Index the modules
+	slog.Info("Total", "documents", len(documents))
+	err = common.IndexDocuments(db, documents)
+	if err != nil {
+		return fmt.Errorf("error indexing documents: %w", err)
+	}
+	return nil
 }
 
 func findVirtualEnvironments() ([]string, error) {
@@ -24,16 +60,6 @@ func findVirtualEnvironments() ([]string, error) {
 	}
 	venvs := make([]string, 0)
 	filepath.WalkDir(home, func(path string, d os.DirEntry, err error) error {
-		// Skip hidden directories
-		if d.IsDir() && d.Name()[0] == '.' {
-			slog.Debug("Skipping hidden directory", "path", path)
-			return fs.SkipDir
-		}
-		// Log errors (usually permissions)
-		if err != nil {
-			slog.Warn("Error walking directory", "path", path, "error", err)
-		}
-		// Check for virtual environment
 		if !d.IsDir() {
 			name := filepath.Base(path)
 			if name == "pyvenv.cfg" {
@@ -76,6 +102,13 @@ func moduleNameFromPath(sitePackagesDir string, path string) string {
 	path = strings.TrimSuffix(path, ".py")
 	path = strings.ReplaceAll(path, string(os.PathSeparator), ".")
 	return path
+}
+
+type PythonModule struct {
+	Venv            string
+	Name            string
+	Path            string
+	SitePackagesDir string
 }
 
 func findModules(venv string) ([]PythonModule, error) {
@@ -126,38 +159,4 @@ func findModules(venv string) ([]PythonModule, error) {
 		})
 	}
 	return acc, nil
-}
-
-func Index(baseOutputDir string) error {
-	// Connect to SQLite database
-	outputDir := pythonOutputDir(baseOutputDir)
-	db, err := common.OpenDB(outputDir, DB_NAME)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	err = createTables(db)
-	if err != nil {
-		return err
-	}
-	// Find python virtual environments
-	virtualEnvs, err := findVirtualEnvironments()
-	if err != nil {
-		slog.Error("Error finding virtual environments", "error", err)
-		return err
-	}
-	for _, venv := range virtualEnvs {
-		// Find modules in the virtual environment
-		slog.Info("Found virtual environment", "venv", venv)
-		modules, err := findModules(venv)
-		if err != nil {
-			return err
-		}
-		// Insert modules into the database
-		err = insertPythonModules(db, modules)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

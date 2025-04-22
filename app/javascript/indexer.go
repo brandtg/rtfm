@@ -9,13 +9,69 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/brandtg/rtfm/internal/common"
+	"github.com/brandtg/rtfm/app/common"
 )
 
-func javascriptOutputDir(baseOutputDir string) string {
-	dir := filepath.Join(baseOutputDir, "javascript")
-	os.MkdirAll(dir, os.ModePerm)
-	return dir
+func Index() error {
+	slog.Info("Indexing Javascript modules...")
+	// Connect to the database
+	db, err := common.OpenDB()
+	if err != nil {
+		return fmt.Errorf("error opening database: %w", err)
+	}
+	defer db.Close()
+	// Find node_modules directories
+	nodeModulesDirs, err := findNodeModulesDirs()
+	if err != nil {
+		slog.Error("Error finding node modules", "error", err)
+		return err
+	}
+	// Find packages in each node_modules directory
+	for _, nodeModuleDir := range nodeModulesDirs {
+		slog.Info("Found node_modules", "path", nodeModuleDir)
+		// Find packages in node_modules
+		var packages []*JavaScriptPackage
+		packages, err = findJavaScriptPackages(nodeModuleDir)
+		if err != nil {
+			slog.Error("Error finding JavaScript packages", "error", err)
+			return err
+		}
+		// Find modules in each package
+		for _, pkg := range packages {
+			// Find files in package
+			var files []string
+			files, err = findJavaScriptFiles(pkg)
+			if err != nil {
+				slog.Error("Error finding JavaScript files", "error", err)
+				return err
+			}
+			// Map files to JavaScriptModule
+			javascriptModules := make([]JavaScriptModule, 0)
+			for _, file := range files {
+				javaScriptModule := JavaScriptModule{
+					Path:    strings.Replace(file, nodeModuleDir, "", 1)[1:],
+					Package: pkg,
+				}
+				javascriptModules = append(javascriptModules, javaScriptModule)
+			}
+			// Create a search document for each module
+			documents := make([]*common.SearchDocument, 0)
+			for _, module := range javascriptModules {
+				doc := &common.SearchDocument{
+					Language: common.Javascript,
+					Name:     module.Path,
+					Path:     filepath.Join(pkg.NodeModulesDir, module.Path),
+				}
+				documents = append(documents, doc)
+			}
+			// Write to database
+			err = common.IndexDocuments(db, documents)
+			if err != nil {
+				return fmt.Errorf("error indexing documents: %w", err)
+			}
+		}
+	}
+	return nil
 }
 
 func isNestedNodeModules(path string) bool {
@@ -29,6 +85,11 @@ func isNestedNodeModules(path string) bool {
 	return count > 1
 }
 
+func shouldExclude(path string) bool {
+	// TODO Add more exclusions
+	return strings.Contains(path, "/anaconda3/")
+}
+
 func findNodeModulesDirs() ([]string, error) {
 	home := os.Getenv("HOME")
 	if home == "" {
@@ -39,6 +100,11 @@ func findNodeModulesDirs() ([]string, error) {
 		// Skip hidden directories
 		if d.IsDir() && d.Name()[0] == '.' {
 			slog.Debug("Skipping hidden directory", "path", path)
+			return fs.SkipDir
+		}
+		// Skip excluded paths
+		if shouldExclude(path) {
+			slog.Debug("Skipping excluded directory", "path", path)
 			return fs.SkipDir
 		}
 		// Log errors (usually permissions)
@@ -55,6 +121,22 @@ func findNodeModulesDirs() ([]string, error) {
 		return nil, err
 	}
 	return nodeModules, nil
+}
+
+type JavaScriptPackage struct {
+	NodeModulesDir string
+	Name           string
+	Version        string
+	Path           string
+}
+
+func (p *JavaScriptPackage) fullPath() string {
+	return filepath.Join(p.NodeModulesDir, p.Path)
+}
+
+type JavaScriptModule struct {
+	Path    string
+	Package *JavaScriptPackage
 }
 
 func parsePackageJSON(nodeModulesDir string, path string) (*JavaScriptPackage, error) {
@@ -136,58 +218,4 @@ func findJavaScriptFiles(pkg *JavaScriptPackage) ([]string, error) {
 		return nil, err
 	}
 	return files, nil
-}
-
-func Index(baseOutputDir string) error {
-	// Connect to SQLite database
-	outputDir := javascriptOutputDir(baseOutputDir)
-	db, err := common.OpenDB(outputDir, DB_NAME)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-	err = createTables(db)
-	if err != nil {
-		return err
-	}
-	// Find node_modules directories
-	nodeModulesDirs, err := findNodeModulesDirs()
-	if err != nil {
-		slog.Error("Error finding node modules", "error", err)
-		return err
-	}
-	for _, nodeModuleDir := range nodeModulesDirs {
-		slog.Info("Found node_modules directory", "path", nodeModuleDir)
-		// Find packages in node_modules
-		packages, err := findJavaScriptPackages(nodeModuleDir)
-		if err != nil {
-			slog.Error("Error finding JavaScript packages", "error", err)
-			return err
-		}
-		for _, pkg := range packages {
-			// Find files in package
-			files, err := findJavaScriptFiles(pkg)
-			if err != nil {
-				slog.Error("Error finding JavaScript files", "error", err)
-				return err
-			}
-			slog.Debug("Found count of JavaScript files", "count", len(files))
-			// Map files to JavaScriptModule
-			javascriptModules := make([]JavaScriptModule, 0)
-			for _, file := range files {
-				javaScriptModule := JavaScriptModule{
-					Path:    strings.Replace(file, nodeModuleDir, "", 1)[1:],
-					Package: pkg,
-				}
-				javascriptModules = append(javascriptModules, javaScriptModule)
-			}
-			// Write to database
-			err = insertJavascriptModules(db, javascriptModules)
-			if err != nil {
-				slog.Error("Error inserting JavaScript modules", "error", err)
-				return err
-			}
-		}
-	}
-	return nil
 }
