@@ -111,7 +111,7 @@ func RunFzfSearchDocuments(docs []*SearchDocument) (*SearchDocument, error) {
 
 func pathAsComment(language Language, path string) string {
 	switch language {
-	case Java, Javascript:
+	case Java, Javascript, Go:
 		return fmt.Sprintf("// %s", path)
 	default:
 		return fmt.Sprintf("# %s", path)
