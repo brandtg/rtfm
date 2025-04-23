@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"github.com/brandtg/rtfm/app/golang"
 	"github.com/brandtg/rtfm/app/java"
 	"github.com/brandtg/rtfm/app/javascript"
 	"github.com/brandtg/rtfm/app/python"
@@ -37,6 +38,13 @@ var indexCmd = &cobra.Command{
 		// JavaScript
 		if langName == "" || langName == "javascript" {
 			err = javascript.Index()
+			if err != nil {
+				panic(err)
+			}
+		}
+		// Go
+		if langName == "" || langName == "go" {
+			err = golang.Index()
 			if err != nil {
 				panic(err)
 			}
