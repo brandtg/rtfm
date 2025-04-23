@@ -3,19 +3,34 @@ package common
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func EnsureOutputDir() (string, error) {
+func getOutputDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", err
+		panic(err)
 	}
-	outputDir := filepath.Join(home, ".local", "share", "rtfm")
-	err = os.MkdirAll(outputDir, 0o755)
+	return filepath.Join(home, ".local", "share", "rtfm")
+}
+
+func RemoveOutputDir() error {
+	outputDir := getOutputDir()
+	slog.Info("Removing output directory", "dir", outputDir)
+	err := os.RemoveAll(outputDir)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func EnsureOutputDir() (string, error) {
+	outputDir := getOutputDir()
+	err := os.MkdirAll(outputDir, 0o755)
 	if err != nil {
 		return "", err
 	}

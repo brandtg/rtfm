@@ -36,9 +36,11 @@ var searchCmd = &cobra.Command{
 			panic(err)
 		}
 		// Interactive loop to select and view code files
+		var filterQuery string
+		var selected *common.SearchDocument
 		for {
 			// Select the code by name
-			selected, err := common.RunFzfSearchDocuments(docs)
+			filterQuery, selected, err = common.RunFzfSearchDocuments(filterQuery, docs)
 			if err != nil {
 				// If fzf was closed just exit cleanly
 				if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 130 {
