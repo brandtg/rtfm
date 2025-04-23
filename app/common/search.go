@@ -63,50 +63,63 @@ func MakeFuzzy(pattern string) string {
 	return "%" + re.ReplaceAllString(pattern, "%") + "%"
 }
 
-func RunFzf(text *bytes.Buffer) (string, error) {
+func RunFzf(filterQuery string, text *bytes.Buffer) (string, string, error) {
 	// Check if fzf is installed
 	_, err := exec.LookPath("fzf")
 	if err != nil {
 		panic(fmt.Errorf("fzf not found in PATH. Please install fzf to use this feature"))
 	}
+	// Build command
+	args := []string{"--print-query"}
+	if filterQuery != "" {
+		args = append(args, "--query", filterQuery)
+	}
 	// Run fzf over the text
-	fzf := exec.Command("fzf")
+	fzf := exec.Command("fzf", args...)
 	fzf.Stdin = text
-	var selected bytes.Buffer
-	fzf.Stdout = &selected
+	var output bytes.Buffer
+	fzf.Stdout = &output
 	fzf.Stderr = os.Stderr
 	if err := fzf.Run(); err != nil {
-		return "", err
+		return "", "", err
 	}
-	// Get the selected text
-	selection := strings.TrimSpace(selected.String())
-	return selection, nil
+	// Parse the output
+	lines := strings.Split(strings.TrimSpace(output.String()), "\n")
+	query := ""
+	selection := ""
+	switch len(lines) {
+	case 1:
+		selection = lines[0]
+	case 2:
+		query = lines[0]
+		selection = lines[1]
+	}
+	return query, selection, nil
 }
 
-func RunFzfSearchDocuments(docs []*SearchDocument) (*SearchDocument, error) {
+func RunFzfSearchDocuments(filterQuery string, docs []*SearchDocument) (string, *SearchDocument, error) {
 	// Create a buffer of the document names
 	lines := make([]string, len(docs))
 	for i, doc := range docs {
-		// lines[i] = doc.Name
 		lines[i] = strings.Join([]string{NameFromLanguage(doc.Language), doc.Name}, "\t")
 	}
 	lines = Dedupe(lines)
 	slices.Sort(lines)
 	text := bytes.NewBufferString(strings.Join(lines, "\n"))
 	// Get the selected document name via fzf
-	selected, err := RunFzf(text)
+	filterQuery, selected, err := RunFzf(filterQuery, text)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	selectedTokens := strings.Split(selected, "\t")
 	selectedName := selectedTokens[1]
 	// Find the document in the list
 	for _, doc := range docs {
 		if doc.Name == selectedName {
-			return doc, nil
+			return filterQuery, doc, nil
 		}
 	}
-	return nil, fmt.Errorf("document not found: %s", selected)
+	return filterQuery, nil, fmt.Errorf("document not found: %s", selected)
 }
 
 func pathAsComment(language Language, path string) string {

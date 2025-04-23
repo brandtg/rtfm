@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"github.com/brandtg/rtfm/app/common"
 	"github.com/brandtg/rtfm/app/golang"
 	"github.com/brandtg/rtfm/app/java"
 	"github.com/brandtg/rtfm/app/javascript"
@@ -20,6 +21,16 @@ var indexCmd = &cobra.Command{
 		langName, err := cmd.Flags().GetString("lang")
 		if err != nil {
 			panic(err)
+		}
+		remove, err := cmd.Flags().GetBool("remove")
+		if err != nil {
+			panic(err)
+		}
+		if remove {
+			err = common.RemoveOutputDir()
+			if err != nil {
+				panic(err)
+			}
 		}
 		// Java
 		if langName == "" || langName == "java" {
@@ -65,4 +76,5 @@ func init() {
 	// is called directly, e.g.:
 	// indexCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	indexCmd.Flags().StringP("lang", "l", "", "Language to index")
+	indexCmd.Flags().BoolP("remove", "r", false, "Remove any existing index")
 }
