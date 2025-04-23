@@ -1,12 +1,9 @@
 APP_NAME := rtfm
 
-.PHONY: build run clean install
+.PHONY: build clean install fmt
 
 build:
 	go build -o bin/$(APP_NAME) .
-
-run:
-	go run main.go
 
 install:
 	go install .
@@ -16,3 +13,6 @@ clean:
 
 fmt:
 	go fmt ./...
+
+license:
+	go run github.com/google/addlicense@latest -c "Greg Brandt" -l apache .
