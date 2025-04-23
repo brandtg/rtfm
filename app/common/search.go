@@ -3,6 +3,7 @@ package common
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"regexp"
@@ -19,6 +20,7 @@ const (
 	Java Language = iota
 	Python
 	Javascript
+	Go
 )
 
 func LanguageFromName(name string) Language {
@@ -29,6 +31,8 @@ func LanguageFromName(name string) Language {
 		return Python
 	case "javascript":
 		return Javascript
+	case "go":
+		return Go
 	default:
 		return -1
 	}
@@ -42,6 +46,8 @@ func NameFromLanguage(language Language) string {
 		return "python"
 	case Javascript:
 		return "javascript"
+	case Go:
+		return "go"
 	default:
 		return ""
 	}
