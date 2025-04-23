@@ -3,7 +3,6 @@ package common
 import (
 	"bytes"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"regexp"
