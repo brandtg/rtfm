@@ -4,7 +4,8 @@
 virtual environments, `node_modules`, Maven repositories, and more, so you can quickly look up code
 while you work.
 
-![rtfm demo](doc/rtfm-demo.gif)
+https://github.com/user-attachments/assets/3c989c3a-a6bf-477b-a3ad-3ca76bb167dd
+
 
 ## Features
 
