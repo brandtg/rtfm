@@ -312,10 +312,12 @@ func processJDKClasses() error {
 	return nil
 }
 
+// TODO Use tree sitter instead to find classes? https://github.com/tree-sitter/go-tree-sitter
 var (
-	packageNameRegex = regexp.MustCompile(`(?m)package\s+([a-zA-Z0-9_.]+);`)
-	classNameRegex   = regexp.MustCompile(`(?m)(?:class|interface|record|enum)\s+([a-zA-Z0-9_$]+)`)
-	jdkPathPart      = string(filepath.Separator) + "jdk" + string(filepath.Separator)
+	packageNameRegex = regexp.MustCompile(
+		`(?m)package\s+([a-zA-Z0-9_.]+);`)
+	classNameRegex = regexp.MustCompile(`(?:class|interface|record|enum)\s+([a-zA-Z0-9_$]+)`)
+	jdkPathPart    = string(filepath.Separator) + "jdk" + string(filepath.Separator)
 )
 
 func parseJdkPackageName(path string) (string, error) {
@@ -349,28 +351,41 @@ func parseJavaPackageName(path, code string) (string, error) {
 	return packageNameMatch[1], nil
 }
 
-func parseJavaClassNames(path string) ([]string, error) {
-	// Read the file
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	code := string(data)
+func parseJavaClassNames(path, code string) ([]string, error) {
 	// Parse the package
 	packageName, err := parseJavaPackageName(path, code)
 	if err != nil {
 		return nil, err
 	}
+	// Parse the file name (to determine the top-level class name)
+	topLevelClassName := filepath.Base(path)
+	topLevelClassName = strings.TrimSuffix(topLevelClassName, filepath.Ext(topLevelClassName))
 	// Parse all class names
 	classNames := make([]string, 0)
-	classNameMatches := classNameRegex.FindAllStringSubmatch(string(data), -1)
-	for _, match := range classNameMatches {
-		if len(match) < 2 {
+	for line := range strings.SplitSeq(code, "\n") {
+		// Clean up the line
+		line = strings.ReplaceAll(line, "/* package */", "")
+		line = strings.TrimSpace(line)
+		// Ignore empty lines and lines with comments
+		tokens := strings.Split(line, " ")
+		if len(tokens) == 0 || tokens[0] == "//" || tokens[0] == "/*" || tokens[0] == "*" || tokens[0] == "*/" {
 			continue
 		}
-		className := match[1]
-		fullClassName := fmt.Sprintf("%s.%s", packageName, className)
-		classNames = append(classNames, fullClassName)
+		// Find symbols prefixed by class/interface/record/enum
+		classNameMatches := classNameRegex.FindAllStringSubmatch(line, -1)
+		for _, match := range classNameMatches {
+			if len(match) < 2 {
+				continue
+			}
+			className := match[1]
+			if className != topLevelClassName {
+				// If different from the top-level class name, it's an inner class
+				className = fmt.Sprintf("%s.%s", topLevelClassName, className)
+			}
+			// Construct fully qualified class name
+			fullClassName := fmt.Sprintf("%s.%s", packageName, className)
+			classNames = append(classNames, fullClassName)
+		}
 	}
 	return classNames, nil
 }
@@ -391,8 +406,13 @@ func indexClassFiles(db *sql.DB) error {
 			return nil
 		}
 		// Process Java files
-		if strings.HasSuffix(path, ".java") {
-			names, err := parseJavaClassNames(path)
+		if !info.IsDir() && strings.HasSuffix(path, ".java") {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			code := string(data)
+			names, err := parseJavaClassNames(path, code)
 			if err != nil {
 				slog.Error("Error parsing Java class name", "path", path, "error", err)
 				return nil
