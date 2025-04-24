@@ -318,6 +318,7 @@ var (
 		`(?m)package\s+([a-zA-Z0-9_.]+);`)
 	classNameRegex = regexp.MustCompile(`(?:class|interface|record|enum)\s+([a-zA-Z0-9_$]+)`)
 	jdkPathPart    = string(filepath.Separator) + "jdk" + string(filepath.Separator)
+	spaceRegex     = regexp.MustCompile(`\s+`) // Matches one or more whitespace characters
 )
 
 func parseJdkPackageName(path string) (string, error) {
@@ -367,7 +368,7 @@ func parseJavaClassNames(path, code string) ([]string, error) {
 		line = strings.ReplaceAll(line, "/* package */", "")
 		line = strings.TrimSpace(line)
 		// Ignore empty lines and lines with comments
-		tokens := strings.Split(line, " ")
+		tokens := spaceRegex.Split(line, -1)
 		if len(tokens) == 0 || tokens[0] == "//" || tokens[0] == "/*" || tokens[0] == "*" || tokens[0] == "*/" {
 			continue
 		}

@@ -76,5 +76,5 @@ var indexCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(indexCmd)
 	indexCmd.Flags().StringP("lang", "l", "", "Language to index")
-	indexCmd.Flags().BoolP("remove", "r", false, "Remove any existing index")
+	indexCmd.Flags().Bool("remove", false, "Remove any existing index")
 }
